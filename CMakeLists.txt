@@ -14,6 +14,7 @@ add_executable(vulkanDemo
 
 target_include_directories(vulkanDemo PRIVATE
     ${VULKAN_SDK}/Include
+    src/util
 )
 
 target_link_libraries(vulkanDemo PRIVATE
