@@ -19,5 +19,5 @@ target_include_directories(vulkanDemo PRIVATE
 target_link_libraries(vulkanDemo PRIVATE
     Vulkan::Vulkan
     glfw
-    glm
+    glm::glm
 )
