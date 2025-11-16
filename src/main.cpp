@@ -1,25 +1,20 @@
-
-#include "util/vulkan_util.h"
-#include <cstdint>
-#include <vector>
+#include <stdexcept>
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
+
+#include "util/vulkan_util.h"
+#include "window/GlfwWindowConfig.h"
+#include <cstdint>
 #include <glm/glm.hpp>
 #include <iostream>
+#include <vector>
 
 int main()
 {
-    if (!glfwInit())
-        return -1;
+    GlfwWindowConfig glfw_window_config;
 
-    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-
-    auto window = glfwCreateWindow(800, 600, "VulkanDemo", nullptr, nullptr);
-    if (!window)
-    {
-        glfwTerminate();
+    if (!glfw_window_config.init() || !glfw_window_config.createWindow(800, 600, "Vulkan Demo"))
         return -1;
-    }
 
     auto appInfo = VkApplicationInfo{
         .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
@@ -55,7 +50,7 @@ int main()
     }
     VkSurfaceKHR surface;
     {
-        auto result = glfwCreateWindowSurface(instance, window, nullptr, &surface);
+        auto result = glfwCreateWindowSurface(instance, glfw_window_config.getWindow(), nullptr, &surface);
         if (result != VK_SUCCESS)
         {
             std::cerr << "Failed creating window surface: " << result << "\n";
@@ -71,14 +66,14 @@ int main()
         return -1;
     }
 
+    VkDevice vkDevice;
     auto devices = std::vector<VkPhysicalDevice>(deviceCount);
     vkEnumeratePhysicalDevices(instance, &deviceCount, devices.data());
     uint32_t targetDevice = 0;
     uint32_t graphicsFamily = UINT32_MAX, presentFamily = UINT32_MAX;
-    VkDevice vkDevice;
     VkQueue graphicsQueue, presentQueue;
     {
-        auto result = util::createVkGPU(devices[targetDevice], &surface, &graphicsFamily, &presentFamily, &vkDevice,
+        auto result = util::createVkGPU(devices[targetDevice], surface, &graphicsFamily, &presentFamily, &vkDevice,
                                         &graphicsQueue, &presentQueue);
         if (!result)
         {
@@ -87,17 +82,31 @@ int main()
         }
         else
         {
-            std::cout << "Created GPU\n";
+            std::cout << "Created GPU: " << targetDevice << "\n";
         }
     }
 
-    while (!glfwWindowShouldClose(window))
+    auto swapchainSupport = util::querySwapchainSupport(devices[targetDevice], surface);
+
+    auto surfaceFormat = util::chooseSwapSurfaceFormat(swapchainSupport.formats);
+    auto presentMode = util::chooseSwapPresentMode(swapchainSupport.presentModes);
+    auto extent = util::chooseSwapExtent(swapchainSupport.cap, glfw_window_config.getWindow());
+    std::cout << "Extent: " << extent.width << "x" << extent.height << "\n";
+    auto imageCount = (uint32_t)3;
+
+    auto swapchainCreateInfo = util::generate_swapchain_create_info(
+        surface, surfaceFormat, imageCount, extent, presentMode, graphicsFamily, presentFamily, swapchainSupport.cap);
+
+    VkSwapchainKHR swapchain;
+    if (vkCreateSwapchainKHR(vkDevice, &swapchainCreateInfo, nullptr, &swapchain) != VK_SUCCESS)
     {
-        glfwPollEvents();
+        throw std::runtime_error("Failed creating swapchain");
     }
 
-    glfwDestroyWindow(window);
-    glfwTerminate();
+    while (!glfw_window_config.shouldClose())
+    {
+        glfw_window_config.pollEvents();
+    }
 
     return 0;
 }

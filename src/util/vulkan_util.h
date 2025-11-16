@@ -1,5 +1,7 @@
 #pragma once
 
+#include <GLFW/glfw3.h>
+#include <algorithm>
 #include <cstdint>
 #include <set>
 #include <vector>
@@ -7,7 +9,14 @@
 
 namespace util
 {
-inline bool createVkGPU(VkPhysicalDevice device, VkSurfaceKHR *surface, uint32_t *graphicsFamily,
+struct SwapchainSupportDetails
+{
+    VkSurfaceCapabilitiesKHR cap;
+    std::vector<VkSurfaceFormatKHR> formats;
+    std::vector<VkPresentModeKHR> presentModes;
+};
+
+inline bool createVkGPU(VkPhysicalDevice device, VkSurfaceKHR surface, uint32_t *graphicsFamily,
                         uint32_t *presentFamily, VkDevice *vkDevice, VkQueue *graphicsQueue, VkQueue *presentQueue)
 {
     *graphicsFamily = UINT32_MAX;
@@ -31,7 +40,7 @@ inline bool createVkGPU(VkPhysicalDevice device, VkSurfaceKHR *surface, uint32_t
     for (auto i = 0; i < queueFamilyCount; ++i)
     {
         VkBool32 presentSupport = false;
-        vkGetPhysicalDeviceSurfaceSupportKHR(device, i, *surface, &presentSupport);
+        vkGetPhysicalDeviceSurfaceSupportKHR(device, i, surface, &presentSupport);
         if (presentSupport)
         {
             *presentFamily = i;
@@ -84,5 +93,100 @@ inline bool createVkGPU(VkPhysicalDevice device, VkSurfaceKHR *surface, uint32_t
     vkGetDeviceQueue(*vkDevice, *presentFamily, 0, presentQueue);
 
     return true;
+}
+
+inline SwapchainSupportDetails querySwapchainSupport(VkPhysicalDevice device, VkSurfaceKHR surface)
+{
+    SwapchainSupportDetails details;
+
+    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, surface, &details.cap);
+
+    uint32_t formatCount = 0;
+    vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &formatCount, nullptr);
+
+    details.formats.resize(formatCount);
+    vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &formatCount, details.formats.data());
+
+    uint32_t presentModeCount = 0;
+    vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &presentModeCount, nullptr);
+
+    details.presentModes.resize(presentModeCount);
+    vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &presentModeCount, details.presentModes.data());
+
+    return details;
+}
+
+inline VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR> &availableFormats)
+{
+    for (const auto &format : availableFormats)
+        if (format.format == VK_FORMAT_B8G8R8A8_SRGB && format.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
+            return format;
+
+    return availableFormats[0];
+}
+
+inline VkPresentModeKHR chooseSwapPresentMode(const std::vector<VkPresentModeKHR> &availablePresentModes)
+{
+    for (const auto &presentMode : availablePresentModes)
+        if (presentMode == VK_PRESENT_MODE_MAILBOX_KHR)
+            return presentMode;
+
+    return VK_PRESENT_MODE_FIFO_KHR;
+}
+
+inline VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR &cap, GLFWwindow *window)
+{
+    if (cap.currentExtent.width != UINT32_MAX)
+        return cap.currentExtent;
+
+    int width, height;
+    glfwGetFramebufferSize(window, &width, &height);
+
+    auto actualExtent = VkExtent2D{
+        .width = static_cast<uint32_t>(width),
+        .height = static_cast<uint32_t>(height),
+    };
+
+    actualExtent.width = std::clamp(actualExtent.width, cap.minImageExtent.width, cap.maxImageExtent.width);
+    actualExtent.height = std::clamp(actualExtent.height, cap.minImageExtent.height, cap.maxImageExtent.height);
+
+    return actualExtent;
+}
+
+inline VkSwapchainCreateInfoKHR generate_swapchain_create_info(VkSurfaceKHR &surface, VkSurfaceFormatKHR &surfaceFormat,
+                                                               uint32_t imageCount, VkExtent2D &extent,
+                                                               VkPresentModeKHR &presentMode, uint32_t graphicsFamily,
+                                                               uint32_t presentFamily, VkSurfaceCapabilitiesKHR &cap)
+{
+    auto createInfo = VkSwapchainCreateInfoKHR{
+        .sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
+        .surface = surface,
+        .minImageCount = imageCount,
+        .imageFormat = surfaceFormat.format,
+        .imageColorSpace = surfaceFormat.colorSpace,
+        .imageExtent = extent,
+        .imageArrayLayers = 1,
+        .imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+        .preTransform = cap.currentTransform,
+        .compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
+        .presentMode = presentMode,
+        .clipped = VK_TRUE,
+        .oldSwapchain = VK_NULL_HANDLE,
+    };
+
+    uint32_t queueFamilyIndices[] = {graphicsFamily, presentFamily};
+
+    if (graphicsFamily != presentFamily)
+    {
+        createInfo.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
+        createInfo.queueFamilyIndexCount = 2;
+        createInfo.pQueueFamilyIndices = queueFamilyIndices;
+    }
+    else
+    {
+        createInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    }
+
+    return createInfo;
 }
 } // namespace util

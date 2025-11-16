@@ -15,10 +15,15 @@ add_executable(vulkanDemo
 target_include_directories(vulkanDemo PRIVATE
     ${VULKAN_SDK}/Include
     src/util
+    src/window
 )
 
 target_link_libraries(vulkanDemo PRIVATE
     Vulkan::Vulkan
     glfw
     glm::glm
+)
+
+target_sources(vulkanDemo PRIVATE
+    src/window/GlfwWindowConfig.cpp
 )
