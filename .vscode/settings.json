@@ -1,0 +1,6 @@
+{
+  "cmake.configureSettings": {
+    "CMAKE_TOOLCHAIN_FILE": "C:/Users/Zhou/lib/vcpkg/scripts/buildsystems/vcpkg.cmake"
+  },
+  "cmake.generator": "Ninja"
+}
