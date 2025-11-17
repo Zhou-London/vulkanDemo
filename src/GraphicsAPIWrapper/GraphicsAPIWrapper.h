@@ -19,6 +19,17 @@ class GraphicsAPIWrapper {
   bool make_render_pass() { return backend_.make_render_pass(); }
   bool make_frame_buffers() { return backend_.make_frame_buffers(); }
 
+  bool make_command_pool() { return backend_.make_command_pool(); }
+  bool make_command_buffers() { return backend_.make_command_buffers(); }
+
+  bool load_shader() { return backend_.load_shader(); }
+  bool make_pipeline() { return backend_.make_pipeline(); }
+
+  bool record_command_buffers() { return backend_.record_command_buffers(); }
+
+  bool init_sync() { return backend_.init_sync(); }
+  void run() { return backend_.run(); }
+
  private:
   B backend_;
 };

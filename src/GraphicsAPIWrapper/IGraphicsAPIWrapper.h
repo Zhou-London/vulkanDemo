@@ -12,4 +12,12 @@ concept IGraphicsAPIWrapper = requires(T backend) {
   { backend.make_swapchain_image_views() } -> std::same_as<bool>;
   { backend.make_render_pass() } -> std::same_as<bool>;
   { backend.make_frame_buffers() } -> std::same_as<bool>;
+  { backend.make_command_pool() } -> std::same_as<bool>;
+  { backend.make_command_buffers() } -> std::same_as<bool>;
+  { backend.load_shader() } -> std::same_as<bool>;
+  { backend.make_pipeline() } -> std::same_as<bool>;
+  { backend.record_command_buffers() } -> std::same_as<bool>;
+
+  { backend.init_sync() } -> std::same_as<bool>;
+  { backend.run() } -> std::same_as<void>;
 };
