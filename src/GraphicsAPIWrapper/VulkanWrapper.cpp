@@ -3,7 +3,7 @@
 #include <cstdint>
 #include <vector>
 
-VulkanWrapper::VulkanWrapper(Params &&params, Data &&data)
+VulkanWrapper::VulkanWrapper(Params&& params, Data&& data)
     : params_(std::move(params)), data_(std::move(data)) {}
 
 bool VulkanWrapper::make_instance() {
@@ -35,7 +35,9 @@ bool VulkanWrapper::make_instance() {
 }
 
 bool VulkanWrapper::make_surface() {
-  return glfwCreateWindowSurface(data_.instance, params_.window, nullptr,
+  return glfwCreateWindowSurface(data_.instance,
+                                 params_.window,
+                                 nullptr,
                                  &data_.surface) == VK_SUCCESS &&
          data_.surface != nullptr;
 }
@@ -48,13 +50,17 @@ bool VulkanWrapper::make_logical_device() {
   }
 
   auto physicalDevices = std::vector<VkPhysicalDevice>(deviceCount);
-  vkEnumeratePhysicalDevices(data_.instance, &deviceCount,
+  vkEnumeratePhysicalDevices(data_.instance,
+                             &deviceCount,
                              physicalDevices.data());
   data_.physical_device = physicalDevices[params_.target_gpu];
 
-  return util::createVkGPU(data_.physical_device, data_.surface,
-                           &data_.graphics_family, &data_.present_family,
-                           &data_.logical_device, &data_.graphics_queue,
+  return util::createVkGPU(data_.physical_device,
+                           data_.surface,
+                           &data_.graphics_family,
+                           &data_.present_family,
+                           &data_.logical_device,
+                           &data_.graphics_queue,
                            &data_.present_queue) &&
          data_.logical_device != nullptr;
 }
@@ -66,23 +72,29 @@ bool VulkanWrapper::make_swapchain() {
   auto surfaceFormat =
       util::chooseSwapSurfaceFormat(swapchainSupport.formats, params_.format);
 
-  if (surfaceFormat.format != params_.format)
-    return false;
+  if (surfaceFormat.format != params_.format) return false;
 
   auto presentMode = util::chooseSwapPresentMode(swapchainSupport.presentModes,
                                                  params_.present_mode);
 
-  if (presentMode != params_.present_mode)
-    return false;
+  if (presentMode != params_.present_mode) return false;
 
-  auto extent = util::chooseSwapExtent(swapchainSupport.cap, params_.window);
+  data_.extent = util::chooseSwapExtent(swapchainSupport.cap, params_.window);
 
-  auto swapchainCreateInfo = util::generate_swapchain_create_info(
-      data_.surface, surfaceFormat, params_.image_count, extent, presentMode,
-      data_.graphics_family, data_.present_family, swapchainSupport.cap);
+  auto swapchainCreateInfo =
+      util::generate_swapchain_create_info(data_.surface,
+                                           surfaceFormat,
+                                           params_.image_count,
+                                           data_.extent,
+                                           presentMode,
+                                           data_.graphics_family,
+                                           data_.present_family,
+                                           swapchainSupport.cap);
 
-  return vkCreateSwapchainKHR(data_.logical_device, &swapchainCreateInfo,
-                              nullptr, &data_.swap_chain) == VK_SUCCESS &&
+  return vkCreateSwapchainKHR(data_.logical_device,
+                              &swapchainCreateInfo,
+                              nullptr,
+                              &data_.swap_chain) == VK_SUCCESS &&
          data_.swap_chain != nullptr;
 }
 
@@ -90,11 +102,12 @@ bool VulkanWrapper::make_swapchain_image_views() {
   auto swapchainImages = std::vector<VkImage>(params_.image_count);
 
   uint32_t imageCount = params_.image_count;
-  vkGetSwapchainImagesKHR(data_.logical_device, data_.swap_chain, &imageCount,
+  vkGetSwapchainImagesKHR(data_.logical_device,
+                          data_.swap_chain,
+                          &imageCount,
                           swapchainImages.data());
 
-  if (swapchainImages.size() != params_.image_count)
-    return false;
+  if (swapchainImages.size() != params_.image_count) return false;
 
   for (auto image : swapchainImages) {
     auto viewInfo =
@@ -106,8 +119,7 @@ bool VulkanWrapper::make_swapchain_image_views() {
     data_.swap_chain_image_views.push_back(imageView);
   }
 
-  if (data_.swap_chain_image_views.size() != params_.image_count)
-    return false;
+  if (data_.swap_chain_image_views.size() != params_.image_count) return false;
 
   return true;
 }
@@ -123,8 +135,9 @@ bool VulkanWrapper::make_render_pass() {
       .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
       .finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR};
 
-  auto colorAttachmentRef = VkAttachmentReference{
-      .attachment = 0, .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
+  auto colorAttachmentRef =
+      VkAttachmentReference{.attachment = 0,
+                            .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
 
   auto subpass =
       VkSubpassDescription{.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
@@ -148,7 +161,30 @@ bool VulkanWrapper::make_render_pass() {
                              .dependencyCount = 1,
                              .pDependencies = &dependency};
 
-  return vkCreateRenderPass(data_.logical_device, &renderPassInfo, nullptr,
+  return vkCreateRenderPass(data_.logical_device,
+                            &renderPassInfo,
+                            nullptr,
                             &data_.render_pass) == VK_SUCCESS &&
          data_.render_pass != nullptr;
+}
+
+bool VulkanWrapper::make_frame_buffers() {
+  data_.swap_chain_frame_buffers.resize(data_.swap_chain_image_views.size());
+
+  for (size_t i = 0; i < data_.swap_chain_image_views.size(); ++i) {
+    VkImageView attachments[] = {data_.swap_chain_image_views[i]};
+
+    auto frameBufferInfo =
+        util::generate_frame_buffer_create_info(data_.render_pass,
+                                                data_.extent,
+                                                attachments);
+
+    if (vkCreateFramebuffer(data_.logical_device,
+                            &frameBufferInfo,
+                            nullptr,
+                            &data_.swap_chain_frame_buffers[i]) != VK_SUCCESS)
+      return false;
+  }
+
+  return true;
 }

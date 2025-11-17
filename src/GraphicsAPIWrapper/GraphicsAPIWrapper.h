@@ -1,10 +1,11 @@
 #pragma once
 
 #include "IGraphicsAPIWrapper.h"
-template <IGraphicsAPIWrapper B> class GraphicsAPIWrapper {
-public:
+template <IGraphicsAPIWrapper B>
+class GraphicsAPIWrapper {
+ public:
   template <typename... Args>
-  GraphicsAPIWrapper(Args &&...args) : backend_(std::forward<Args>(args)...) {}
+  GraphicsAPIWrapper(Args&&... args) : backend_(std::forward<Args>(args)...) {}
 
   ~GraphicsAPIWrapper() = default;
 
@@ -15,9 +16,9 @@ public:
   bool make_swapchain_image_views() {
     return backend_.make_swapchain_image_views();
   }
-
   bool make_render_pass() { return backend_.make_render_pass(); }
+  bool make_frame_buffers() { return backend_.make_frame_buffers(); }
 
-private:
+ private:
   B backend_;
 };

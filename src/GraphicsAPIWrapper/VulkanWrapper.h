@@ -1,13 +1,14 @@
 #pragma once
 
+#include "config.h"
+#include <GLFW/glfw3.h>
+
 #include <cstdint>
 #include <string>
 #include <vector>
-#define GLFW_INCLUDE_VULKAN
-#include <GLFW/glfw3.h>
 
 class VulkanWrapper {
-public:
+ public:
   struct Data {
     VkInstance instance;
     VkSurfaceKHR surface;
@@ -17,20 +18,22 @@ public:
     uint32_t present_family;
     VkQueue graphics_queue;
     VkQueue present_queue;
+    VkExtent2D extent;
     VkSwapchainKHR swap_chain;
     std::vector<VkImageView> swap_chain_image_views;
     VkRenderPass render_pass;
+    std::vector<VkFramebuffer> swap_chain_frame_buffers;
   };
   struct Params {
     std::string application_name;
     uint32_t target_gpu;
-    GLFWwindow *window;
+    GLFWwindow* window;
     uint32_t image_count;
     VkFormat format;
     VkPresentModeKHR present_mode;
   };
 
-  VulkanWrapper(Params &&params, Data &&data);
+  VulkanWrapper(Params&& params, Data&& data);
   ~VulkanWrapper() = default;
 
   bool make_instance();
@@ -39,12 +42,13 @@ public:
   bool make_swapchain();
   bool make_swapchain_image_views();
   bool make_render_pass();
+  bool make_frame_buffers();
 
-  const Params &params() const noexcept { return params_; }
+  const Params& params() const noexcept { return params_; }
 
-  const Data &data() const noexcept { return data_; }
+  const Data& data() const noexcept { return data_; }
 
-private:
+ private:
   Data data_;
   const Params params_;
 };

@@ -128,7 +128,8 @@ chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR> &availableFormats,
 }
 
 inline VkPresentModeKHR chooseSwapPresentMode(
-    const std::vector<VkPresentModeKHR> &availablePresentModes, VkPresentModeKHR targetPresentMode) {
+    const std::vector<VkPresentModeKHR> &availablePresentModes,
+    VkPresentModeKHR targetPresentMode) {
   for (const auto &presentMode : availablePresentModes)
     if (presentMode == targetPresentMode)
       return presentMode;
@@ -159,10 +160,9 @@ inline VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR &cap,
 }
 
 inline VkSwapchainCreateInfoKHR generate_swapchain_create_info(
-    VkSurfaceKHR surface, VkSurfaceFormatKHR surfaceFormat,
-    uint32_t imageCount, VkExtent2D extent, VkPresentModeKHR presentMode,
-    uint32_t graphicsFamily, uint32_t presentFamily,
-    VkSurfaceCapabilitiesKHR &cap) {
+    VkSurfaceKHR surface, VkSurfaceFormatKHR surfaceFormat, uint32_t imageCount,
+    VkExtent2D extent, VkPresentModeKHR presentMode, uint32_t graphicsFamily,
+    uint32_t presentFamily, VkSurfaceCapabilitiesKHR &cap) {
   auto createInfo = VkSwapchainCreateInfoKHR{
       .sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
       .surface = surface,
@@ -214,5 +214,21 @@ inline VkImageViewCreateInfo generate_image_view_create_info(VkImage image,
                             }};
 
   return viewInfo;
+}
+
+inline VkFramebufferCreateInfo
+generate_frame_buffer_create_info(VkRenderPass renderPass, VkExtent2D &extent,
+                                  VkImageView attachments[]) {
+  auto frameBufferInfo = VkFramebufferCreateInfo{
+      .sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
+      .renderPass = renderPass,
+      .attachmentCount = 1,
+      .pAttachments = attachments,
+      .width = extent.width,
+      .height = extent.height,
+      .layers = 1,
+  };
+
+  return frameBufferInfo;
 }
 } // namespace util

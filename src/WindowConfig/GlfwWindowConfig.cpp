@@ -5,18 +5,17 @@ GlfwWindowConfig::GlfwWindowConfig() { window = nullptr; }
 GlfwWindowConfig::~GlfwWindowConfig() { closeWindow(); }
 
 bool GlfwWindowConfig::init() {
-  if (!glfwInit())
-    return false;
+  if (!glfwInit()) return false;
 
   glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
   return true;
 }
 
-bool GlfwWindowConfig::createWindow(uint32_t width, uint32_t height,
-                                    const char *title) {
+bool GlfwWindowConfig::createWindow(uint32_t width,
+                                    uint32_t height,
+                                    const char* title) {
   window = glfwCreateWindow(width, height, title, nullptr, nullptr);
-  if (!window)
-    return false;
+  if (!window) return false;
   return true;
 }
 
@@ -31,4 +30,4 @@ void GlfwWindowConfig::closeWindow() {
   glfwTerminate();
 }
 
-GLFWwindow *GlfwWindowConfig::getWindow() const { return window; }
+GLFWwindow* GlfwWindowConfig::getWindow() const { return window; }

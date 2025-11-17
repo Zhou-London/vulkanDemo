@@ -1,13 +1,11 @@
-#include "GraphicsAPIWrapper.h"
-#include "VulkanWrapper.h"
-#include <GLFW/glfw3.h>
-
+#include "config.h"
 #include <cstdint>
 #include <glm/glm.hpp>
 #include <iostream>
 
 #include "GlfwWindowConfig.h"
-#include "config.h"
+#include "GraphicsAPIWrapper.h"
+#include "VulkanWrapper.h"
 
 int main() {
   GlfwWindowConfig glfwWindowConfig;
@@ -35,6 +33,7 @@ int main() {
           .present_family = UINT32_MAX,
           .graphics_queue = nullptr,
           .present_queue = nullptr,
+          .extent = {.width = 0, .height = 0},
           .swap_chain = nullptr,
           .render_pass = nullptr,
       });
@@ -85,14 +84,20 @@ int main() {
     std::cout << "Render pass created\n";
   }
 
+  if (!graphicsAPIWrapper.make_frame_buffers()) {
+    std::cerr << "Failed creating frame buffers\n";
+    return -1;
+  } else if (TRACE_INFO_LOG) {
+    std::cout << "Frame buffers created\n";
+  }
+
   std::cout << "Vulkan Program Started.\n";
 
   while (!glfwWindowConfig.shouldClose()) {
     glfwWindowConfig.pollEvents();
   }
 
-  if (TRACE_INFO_LOG)
-    std::cout << "Vulkan Program Ended.\n";
+  if (TRACE_INFO_LOG) std::cout << "Vulkan Program Ended.\n";
 
   return 0;
 }
