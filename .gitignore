@@ -1,3 +1,6 @@
 build
 .cache
 *.env
+
+# Shader compiled files
+*.spv
