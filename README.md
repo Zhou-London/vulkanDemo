@@ -13,11 +13,18 @@ A simple lumination engine built from Vulkan.
 ## Get Started
 
 1. Compile Shaders
+
 ```bash
 $ glslc shaders/simple.vert -o shaders/simple.vert.spv
 
-$ glslc shaders/simple.frag -o shaders/simple.frag.spv 
+$ glslc shaders/simple.frag -o shaders/simple.frag.spv
 ```
 
 2. Build the projefct
 3. Run
+
+## TODO
+
+1. Adds Lumination. (given this is a lumination engine!)
+2. Supports 3D object.
+3. ...
