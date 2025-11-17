@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <set>
+#include <stdexcept>
 #include <vector>
 
 namespace util {
@@ -15,10 +16,13 @@ struct SwapchainSupportDetails {
   std::vector<VkPresentModeKHR> presentModes;
 };
 
-inline bool createVkGPU(VkPhysicalDevice device, VkSurfaceKHR surface,
-                        uint32_t *graphicsFamily, uint32_t *presentFamily,
-                        VkDevice *vkDevice, VkQueue *graphicsQueue,
-                        VkQueue *presentQueue) {
+inline bool createVkGPU(VkPhysicalDevice device,
+                        VkSurfaceKHR surface,
+                        uint32_t* graphicsFamily,
+                        uint32_t* presentFamily,
+                        VkDevice* vkDevice,
+                        VkQueue* graphicsQueue,
+                        VkQueue* presentQueue) {
   *graphicsFamily = UINT32_MAX;
   *presentFamily = UINT32_MAX;
 
@@ -26,7 +30,8 @@ inline bool createVkGPU(VkPhysicalDevice device, VkSurfaceKHR surface,
   vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, nullptr);
 
   auto queueFamilies = std::vector<VkQueueFamilyProperties>(queueFamilyCount);
-  vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount,
+  vkGetPhysicalDeviceQueueFamilyProperties(device,
+                                           &queueFamilyCount,
                                            queueFamilies.data());
 
   for (auto i = 0; i < queueFamilyCount; ++i) {
@@ -67,7 +72,7 @@ inline bool createVkGPU(VkPhysicalDevice device, VkSurfaceKHR surface,
   }
 
   const auto deviceExtensions =
-      std::vector<const char *>{VK_KHR_SWAPCHAIN_EXTENSION_NAME};
+      std::vector<const char*>{VK_KHR_SWAPCHAIN_EXTENSION_NAME};
 
   auto createInfo = VkDeviceCreateInfo{
       .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
@@ -101,25 +106,30 @@ inline SwapchainSupportDetails querySwapchainSupport(VkPhysicalDevice device,
   vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &formatCount, nullptr);
 
   details.formats.resize(formatCount);
-  vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &formatCount,
+  vkGetPhysicalDeviceSurfaceFormatsKHR(device,
+                                       surface,
+                                       &formatCount,
                                        details.formats.data());
 
   uint32_t presentModeCount = 0;
-  vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &presentModeCount,
+  vkGetPhysicalDeviceSurfacePresentModesKHR(device,
+                                            surface,
+                                            &presentModeCount,
                                             nullptr);
 
   details.presentModes.resize(presentModeCount);
-  vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &presentModeCount,
+  vkGetPhysicalDeviceSurfacePresentModesKHR(device,
+                                            surface,
+                                            &presentModeCount,
                                             details.presentModes.data());
 
   return details;
 }
 
-// ! Complete fail condition
-inline VkSurfaceFormatKHR
-chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR> &availableFormats,
-                        VkFormat targetFormat) {
-  for (const auto &format : availableFormats)
+inline VkSurfaceFormatKHR chooseSwapSurfaceFormat(
+    const std::vector<VkSurfaceFormatKHR>& availableFormats,
+    VkFormat targetFormat) {
+  for (const auto& format : availableFormats)
     if (format.format == targetFormat &&
         format.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
       return format;
@@ -128,19 +138,17 @@ chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR> &availableFormats,
 }
 
 inline VkPresentModeKHR chooseSwapPresentMode(
-    const std::vector<VkPresentModeKHR> &availablePresentModes,
+    const std::vector<VkPresentModeKHR>& availablePresentModes,
     VkPresentModeKHR targetPresentMode) {
-  for (const auto &presentMode : availablePresentModes)
-    if (presentMode == targetPresentMode)
-      return presentMode;
+  for (const auto& presentMode : availablePresentModes)
+    if (presentMode == targetPresentMode) return presentMode;
 
   return VK_PRESENT_MODE_FIFO_KHR;
 }
 
-inline VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR &cap,
-                                   GLFWwindow *window) {
-  if (cap.currentExtent.width != UINT32_MAX)
-    return cap.currentExtent;
+inline VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& cap,
+                                   GLFWwindow* window) {
+  if (cap.currentExtent.width != UINT32_MAX) return cap.currentExtent;
 
   int width, height;
   glfwGetFramebufferSize(window, &width, &height);
@@ -150,19 +158,26 @@ inline VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR &cap,
       .height = static_cast<uint32_t>(height),
   };
 
-  actualExtent.width = std::clamp(actualExtent.width, cap.minImageExtent.width,
+  actualExtent.width = std::clamp(actualExtent.width,
+                                  cap.minImageExtent.width,
                                   cap.maxImageExtent.width);
-  actualExtent.height =
-      std::clamp(actualExtent.height, cap.minImageExtent.height,
-                 cap.maxImageExtent.height);
+  actualExtent.height = std::clamp(actualExtent.height,
+                                   cap.minImageExtent.height,
+                                   cap.maxImageExtent.height);
 
   return actualExtent;
 }
 
+// ! Remove this
 inline VkSwapchainCreateInfoKHR generate_swapchain_create_info(
-    VkSurfaceKHR surface, VkSurfaceFormatKHR surfaceFormat, uint32_t imageCount,
-    VkExtent2D extent, VkPresentModeKHR presentMode, uint32_t graphicsFamily,
-    uint32_t presentFamily, VkSurfaceCapabilitiesKHR &cap) {
+    VkSurfaceKHR surface,
+    VkSurfaceFormatKHR surfaceFormat,
+    uint32_t imageCount,
+    VkExtent2D extent,
+    VkPresentModeKHR presentMode,
+    uint32_t graphicsFamily,
+    uint32_t presentFamily,
+    VkSurfaceCapabilitiesKHR& cap) {
   auto createInfo = VkSwapchainCreateInfoKHR{
       .sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
       .surface = surface,
@@ -192,43 +207,20 @@ inline VkSwapchainCreateInfoKHR generate_swapchain_create_info(
   return createInfo;
 }
 
-inline VkImageViewCreateInfo generate_image_view_create_info(VkImage image,
-                                                             VkFormat format) {
-  auto viewInfo =
-      VkImageViewCreateInfo{.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
-                            .image = image,
-                            .viewType = VK_IMAGE_VIEW_TYPE_2D,
-                            .format = format,
-                            .components{
-                                .r = VK_COMPONENT_SWIZZLE_IDENTITY,
-                                .g = VK_COMPONENT_SWIZZLE_IDENTITY,
-                                .b = VK_COMPONENT_SWIZZLE_IDENTITY,
-                                .a = VK_COMPONENT_SWIZZLE_IDENTITY,
-                            },
-                            .subresourceRange{
-                                .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-                                .baseMipLevel = 0,
-                                .levelCount = 1,
-                                .baseArrayLayer = 0,
-                                .layerCount = 1,
-                            }};
-
-  return viewInfo;
-}
-
-inline VkFramebufferCreateInfo
-generate_frame_buffer_create_info(VkRenderPass renderPass, VkExtent2D &extent,
-                                  VkImageView attachments[]) {
-  auto frameBufferInfo = VkFramebufferCreateInfo{
-      .sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
-      .renderPass = renderPass,
-      .attachmentCount = 1,
-      .pAttachments = attachments,
-      .width = extent.width,
-      .height = extent.height,
-      .layers = 1,
+inline VkShaderModule createShaderModule(VkDevice device,
+                                         const std::vector<char>& code) {
+  auto createInfo = VkShaderModuleCreateInfo{
+      .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
+      .codeSize = code.size(),
+      .pCode = reinterpret_cast<const uint32_t*>(code.data()),
   };
 
-  return frameBufferInfo;
+  VkShaderModule shaderModule;
+  if (vkCreateShaderModule(device, &createInfo, nullptr, &shaderModule) !=
+      VK_SUCCESS) {
+    throw std::runtime_error("Failed to create shader module!");
+  }
+
+  return shaderModule;
 }
-} // namespace util
+}  // namespace util
