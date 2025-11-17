@@ -15,7 +15,8 @@ add_executable(vulkanDemo
 target_include_directories(vulkanDemo PRIVATE
     ${VULKAN_SDK}/Include
     src/util
-    src/window
+    src/WindowConfig
+    src/GraphicsAPIWrapper
 )
 
 target_link_libraries(vulkanDemo PRIVATE
@@ -25,5 +26,6 @@ target_link_libraries(vulkanDemo PRIVATE
 )
 
 target_sources(vulkanDemo PRIVATE
-    src/window/GlfwWindowConfig.cpp
+    src/WindowConfig/GlfwWindowConfig.cpp
+    src/GraphicsAPIWrapper/VulkanWrapper.cpp
 )
