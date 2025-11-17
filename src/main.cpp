@@ -22,6 +22,9 @@ int main() {
           .application_name = "Vulkan Demo",
           .target_gpu = 0,
           .window = glfwWindowConfig.getWindow(),
+          .image_count = 3,
+          .format = VK_FORMAT_B8G8R8A8_SRGB,
+          .present_mode = VK_PRESENT_MODE_MAILBOX_KHR,
       },
       VulkanWrapper::Data{
           .instance = nullptr,
@@ -33,6 +36,7 @@ int main() {
           .graphics_queue = nullptr,
           .present_queue = nullptr,
           .swap_chain = nullptr,
+          .render_pass = nullptr,
       });
 #else
   // ! Support More APIs
@@ -65,6 +69,20 @@ int main() {
     return -1;
   } else if (TRACE_INFO_LOG) {
     std::cout << "Swapchain created\n";
+  }
+
+  if (!graphicsAPIWrapper.make_swapchain_image_views()) {
+    std::cerr << "Failed creating swapchain image views\n";
+    return -1;
+  } else if (TRACE_INFO_LOG) {
+    std::cout << "Swapchain image views created\n";
+  }
+
+  if (!graphicsAPIWrapper.make_render_pass()) {
+    std::cerr << "Failed creating render pass\n";
+    return -1;
+  } else if (TRACE_INFO_LOG) {
+    std::cout << "Render pass created\n";
   }
 
   std::cout << "Vulkan Program Started.\n";

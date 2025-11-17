@@ -115,10 +115,12 @@ inline SwapchainSupportDetails querySwapchainSupport(VkPhysicalDevice device,
   return details;
 }
 
-inline VkSurfaceFormatKHR chooseSwapSurfaceFormat(
-    const std::vector<VkSurfaceFormatKHR> &availableFormats) {
+// ! Complete fail condition
+inline VkSurfaceFormatKHR
+chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR> &availableFormats,
+                        VkFormat targetFormat) {
   for (const auto &format : availableFormats)
-    if (format.format == VK_FORMAT_B8G8R8A8_SRGB &&
+    if (format.format == targetFormat &&
         format.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
       return format;
 
@@ -126,9 +128,9 @@ inline VkSurfaceFormatKHR chooseSwapSurfaceFormat(
 }
 
 inline VkPresentModeKHR chooseSwapPresentMode(
-    const std::vector<VkPresentModeKHR> &availablePresentModes) {
+    const std::vector<VkPresentModeKHR> &availablePresentModes, VkPresentModeKHR targetPresentMode) {
   for (const auto &presentMode : availablePresentModes)
-    if (presentMode == VK_PRESENT_MODE_MAILBOX_KHR)
+    if (presentMode == targetPresentMode)
       return presentMode;
 
   return VK_PRESENT_MODE_FIFO_KHR;
@@ -157,8 +159,8 @@ inline VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR &cap,
 }
 
 inline VkSwapchainCreateInfoKHR generate_swapchain_create_info(
-    VkSurfaceKHR &surface, VkSurfaceFormatKHR &surfaceFormat,
-    uint32_t imageCount, VkExtent2D &extent, VkPresentModeKHR &presentMode,
+    VkSurfaceKHR surface, VkSurfaceFormatKHR surfaceFormat,
+    uint32_t imageCount, VkExtent2D extent, VkPresentModeKHR presentMode,
     uint32_t graphicsFamily, uint32_t presentFamily,
     VkSurfaceCapabilitiesKHR &cap) {
   auto createInfo = VkSwapchainCreateInfoKHR{
@@ -188,5 +190,29 @@ inline VkSwapchainCreateInfoKHR generate_swapchain_create_info(
   }
 
   return createInfo;
+}
+
+inline VkImageViewCreateInfo generate_image_view_create_info(VkImage image,
+                                                             VkFormat format) {
+  auto viewInfo =
+      VkImageViewCreateInfo{.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+                            .image = image,
+                            .viewType = VK_IMAGE_VIEW_TYPE_2D,
+                            .format = format,
+                            .components{
+                                .r = VK_COMPONENT_SWIZZLE_IDENTITY,
+                                .g = VK_COMPONENT_SWIZZLE_IDENTITY,
+                                .b = VK_COMPONENT_SWIZZLE_IDENTITY,
+                                .a = VK_COMPONENT_SWIZZLE_IDENTITY,
+                            },
+                            .subresourceRange{
+                                .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                                .baseMipLevel = 0,
+                                .levelCount = 1,
+                                .baseArrayLayer = 0,
+                                .layerCount = 1,
+                            }};
+
+  return viewInfo;
 }
 } // namespace util
