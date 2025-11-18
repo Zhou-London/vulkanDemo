@@ -20,7 +20,7 @@ $ glslc shaders/simple.vert -o shaders/simple.vert.spv
 $ glslc shaders/simple.frag -o shaders/simple.frag.spv
 ```
 
-2. Build the projefct
+2. Build the projefct (Do not build when program's running.)
 3. Run
 
 ## TODO
