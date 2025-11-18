@@ -11,37 +11,55 @@ int main() {
   GlfwWindowConfig glfwWindowConfig;
 
   if (!glfwWindowConfig.init() ||
-      !glfwWindowConfig.createWindow(800, 600, "Vulkan Demo"))
+      !glfwWindowConfig.createWindow(1600, 1200, "Vulkan Demo"))
     return -1;
 
 #ifdef GRAPHICS_API_VULKAN
   auto graphicsAPIWrapper = GraphicsAPIWrapper<VulkanWrapper>(
       VulkanWrapper::Params{
-          .application_name = "Vulkan Demo",
-          .target_gpu = 0,
+          .applicationName = "Vulkan Demo",
+          .targetGpu = 0,
           .window = glfwWindowConfig.getWindow(),
-          .image_count = 3,
+          .imageCount = 3,
           .format = VK_FORMAT_B8G8R8A8_SRGB,
-          .present_mode = VK_PRESENT_MODE_MAILBOX_KHR,
+          .presentMode = VK_PRESENT_MODE_FIFO_KHR,
+          .imageViewType = VK_IMAGE_VIEW_TYPE_2D,
+          .imageViewSubsource =
+              {
+                  .mask = VK_IMAGE_ASPECT_COLOR_BIT,
+                  .mipLevel = 0,
+                  .levelCount = 1,
+                  .arrayLayer = 0,
+                  .layerCount = 1,
+              },
+          .colorAttachment =
+              {
+                  .samples = VK_SAMPLE_COUNT_1_BIT,
+              },
+          .rasterizerConfig =
+              {
+                  .polygonMode = VK_POLYGON_MODE_FILL,
+                  .cullMode = VK_CULL_MODE_BACK_BIT,
+                  .frontFace = VK_FRONT_FACE_CLOCKWISE,
+              },
       },
       VulkanWrapper::Data{.instance = nullptr,
                           .surface = nullptr,
-                          .physical_device = nullptr,
-                          .logical_device = nullptr,
-                          .graphics_family = UINT32_MAX,
-                          .present_family = UINT32_MAX,
-                          .graphics_queue = nullptr,
-                          .present_queue = nullptr,
+                          .physicalDevice = nullptr,
+                          .logicalDevice = nullptr,
+                          .graphicsFamily = UINT32_MAX,
+                          .presentFamily = UINT32_MAX,
+                          .graphicsQueue = nullptr,
+                          .presentQueue = nullptr,
                           .extent = {.width = 0, .height = 0},
-                          .swap_chain = nullptr,
-                          .render_pass = nullptr,
-                          .command_pool = nullptr,
-                          .vert_shader_module = nullptr,
-                          .frag_shader_module = nullptr,
-                          .graphics_pipeline = nullptr,
-                          .image_available_semaphore = nullptr,
-                          .render_finished_semaphore = nullptr
-                        });
+                          .swapchain = nullptr,
+                          .renderPass = nullptr,
+                          .commandPool = nullptr,
+                          .vertShaderModule = nullptr,
+                          .fragShaderModule = nullptr,
+                          .graphicsPipeline = nullptr,
+                          .imageAvailableSemaphore = nullptr,
+                          .renderFinishedSemaphore = nullptr});
 #else
   // ! Support More APIs
   auto graphicsAPIWrapper = nullptr;

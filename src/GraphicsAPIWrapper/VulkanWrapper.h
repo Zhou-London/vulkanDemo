@@ -12,37 +12,56 @@ class VulkanWrapper {
   struct Data {
     VkInstance instance;
     VkSurfaceKHR surface;
-    VkPhysicalDevice physical_device;
-    VkDevice logical_device;
-    
-    uint32_t graphics_family;
-    uint32_t present_family;
-    VkQueue graphics_queue;
-    VkQueue present_queue;
+    VkPhysicalDevice physicalDevice;
+    VkDevice logicalDevice;
+
+    uint32_t graphicsFamily;
+    uint32_t presentFamily;
+    VkQueue graphicsQueue;
+    VkQueue presentQueue;
     VkExtent2D extent;
 
-    VkSwapchainKHR swap_chain;
-    std::vector<VkImageView> swap_chain_image_views;
-    VkRenderPass render_pass;
-    std::vector<VkFramebuffer> swap_chain_frame_buffers;
+    VkSwapchainKHR swapchain;
+    std::vector<VkImageView> swapchainImageViews;
+    VkRenderPass renderPass;
+    std::vector<VkFramebuffer> swapchainFrameBuffers;
 
-    VkCommandPool command_pool;
-    std::vector<VkCommandBuffer> command_buffers;
+    VkCommandPool commandPool;
+    std::vector<VkCommandBuffer> commandBuffers;
 
-    VkShaderModule vert_shader_module;
-    VkShaderModule frag_shader_module;
-    VkPipeline graphics_pipeline;
+    VkShaderModule vertShaderModule;
+    VkShaderModule fragShaderModule;
+    VkPipeline graphicsPipeline;
 
-    VkSemaphore image_available_semaphore;
-    VkSemaphore render_finished_semaphore;
+    VkSemaphore imageAvailableSemaphore;
+    VkSemaphore renderFinishedSemaphore;
   };
   struct Params {
-    std::string application_name;
-    uint32_t target_gpu;
+    std::string applicationName;
+    uint32_t targetGpu;
     GLFWwindow* window;
-    uint32_t image_count;
+    uint32_t imageCount;
     VkFormat format;
-    VkPresentModeKHR present_mode;
+    VkPresentModeKHR presentMode;
+    VkImageViewType imageViewType;
+
+    struct ImageViewSubsource {
+      VkImageAspectFlags mask;
+      uint32_t mipLevel;
+      uint32_t levelCount;
+      uint32_t arrayLayer;
+      uint32_t layerCount;
+    } imageViewSubsource;
+
+    struct ColorAttachment {
+      VkSampleCountFlagBits samples;
+    } colorAttachment;
+
+    struct RasterizerConfig {
+      VkPolygonMode polygonMode;
+      VkCullModeFlags cullMode;
+      VkFrontFace frontFace;
+    } rasterizerConfig;
   };
 
   VulkanWrapper(Params&& params, Data&& data);

@@ -4,6 +4,7 @@
 #include "vulkan_util.h"
 #include <cstddef>
 #include <cstdint>
+#include <ranges>
 #include <string>
 #include <vector>
 
@@ -57,21 +58,21 @@ bool VulkanWrapper::make_logical_device() {
   vkEnumeratePhysicalDevices(data_.instance,
                              &deviceCount,
                              physicalDevices.data());
-  data_.physical_device = physicalDevices[params_.target_gpu];
+  data_.physicalDevice = physicalDevices[params_.targetGpu];
 
-  return util::createVkGPU(data_.physical_device,
+  return util::createVkGPU(data_.physicalDevice,
                            data_.surface,
-                           &data_.graphics_family,
-                           &data_.present_family,
-                           &data_.logical_device,
-                           &data_.graphics_queue,
-                           &data_.present_queue) &&
-         data_.logical_device != nullptr;
+                           &data_.graphicsFamily,
+                           &data_.presentFamily,
+                           &data_.logicalDevice,
+                           &data_.graphicsQueue,
+                           &data_.presentQueue) &&
+         data_.logicalDevice != nullptr;
 }
 
 bool VulkanWrapper::make_swapchain() {
   auto swapchainSupport =
-      util::querySwapchainSupport(data_.physical_device, data_.surface);
+      util::querySwapchainSupport(data_.physicalDevice, data_.surface);
 
   auto surfaceFormat =
       util::chooseSwapSurfaceFormat(swapchainSupport.formats, params_.format);
@@ -79,76 +80,75 @@ bool VulkanWrapper::make_swapchain() {
   if (surfaceFormat.format != params_.format) return false;
 
   auto presentMode = util::chooseSwapPresentMode(swapchainSupport.presentModes,
-                                                 params_.present_mode);
+                                                 params_.presentMode);
 
-  if (presentMode != params_.present_mode) return false;
+  if (presentMode != params_.presentMode) return false;
 
   data_.extent = util::chooseSwapExtent(swapchainSupport.cap, params_.window);
 
   auto swapchainCreateInfo =
       util::generate_swapchain_create_info(data_.surface,
                                            surfaceFormat,
-                                           params_.image_count,
+                                           params_.imageCount,
                                            data_.extent,
                                            presentMode,
-                                           data_.graphics_family,
-                                           data_.present_family,
+                                           data_.graphicsFamily,
+                                           data_.presentFamily,
                                            swapchainSupport.cap);
 
-  return vkCreateSwapchainKHR(data_.logical_device,
+  return vkCreateSwapchainKHR(data_.logicalDevice,
                               &swapchainCreateInfo,
                               nullptr,
-                              &data_.swap_chain) == VK_SUCCESS &&
-         data_.swap_chain != nullptr;
+                              &data_.swapchain) == VK_SUCCESS &&
+         data_.swapchain != nullptr;
 }
 
 bool VulkanWrapper::make_swapchain_image_views() {
-  auto swapchainImages = std::vector<VkImage>(params_.image_count);
+  auto swapchainImages = std::vector<VkImage>(params_.imageCount);
 
-  uint32_t imageCount = params_.image_count;
-  vkGetSwapchainImagesKHR(data_.logical_device,
-                          data_.swap_chain,
+  uint32_t imageCount = params_.imageCount;
+  vkGetSwapchainImagesKHR(data_.logicalDevice,
+                          data_.swapchain,
                           &imageCount,
                           swapchainImages.data());
 
-  if (swapchainImages.size() != params_.image_count) return false;
+  if (swapchainImages.size() != params_.imageCount) return false;
 
   for (auto image : swapchainImages) {
-    auto viewInfo =
-        VkImageViewCreateInfo{.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
-                              .image = image,
-                              .viewType = VK_IMAGE_VIEW_TYPE_2D,
-                              .format = params_.format,
-                              .components{
-                                  .r = VK_COMPONENT_SWIZZLE_IDENTITY,
-                                  .g = VK_COMPONENT_SWIZZLE_IDENTITY,
-                                  .b = VK_COMPONENT_SWIZZLE_IDENTITY,
-                                  .a = VK_COMPONENT_SWIZZLE_IDENTITY,
-                              },
-                              .subresourceRange{
-                                  .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-                                  .baseMipLevel = 0,
-                                  .levelCount = 1,
-                                  .baseArrayLayer = 0,
-                                  .layerCount = 1,
-                              }};
+    auto viewInfo = VkImageViewCreateInfo{
+        .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+        .image = image,
+        .viewType = params_.imageViewType,
+        .format = params_.format,
+        .components{
+            .r = VK_COMPONENT_SWIZZLE_IDENTITY,
+            .g = VK_COMPONENT_SWIZZLE_IDENTITY,
+            .b = VK_COMPONENT_SWIZZLE_IDENTITY,
+            .a = VK_COMPONENT_SWIZZLE_IDENTITY,
+        },
+        .subresourceRange{
+            .aspectMask = params_.imageViewSubsource.mask,
+            .baseMipLevel = params_.imageViewSubsource.mipLevel,
+            .levelCount = params_.imageViewSubsource.levelCount,
+            .baseArrayLayer = params_.imageViewSubsource.arrayLayer,
+            .layerCount = params_.imageViewSubsource.layerCount,
+        }};
 
     VkImageView imageView;
-    vkCreateImageView(data_.logical_device, &viewInfo, nullptr, &imageView);
+    vkCreateImageView(data_.logicalDevice, &viewInfo, nullptr, &imageView);
 
-    data_.swap_chain_image_views.push_back(imageView);
+    data_.swapchainImageViews.push_back(imageView);
   }
 
-  if (data_.swap_chain_image_views.size() != params_.image_count) return false;
+  if (data_.swapchainImageViews.size() != params_.imageCount) return false;
 
   return true;
 }
 
 bool VulkanWrapper::make_render_pass() {
-  // ? Use ?
   auto colorAttachment = VkAttachmentDescription{
       .format = params_.format,
-      .samples = VK_SAMPLE_COUNT_1_BIT,
+      .samples = params_.colorAttachment.samples,
       .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
       .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
       .stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
@@ -168,8 +168,10 @@ bool VulkanWrapper::make_render_pass() {
   auto dependency = VkSubpassDependency{
       .srcSubpass = VK_SUBPASS_EXTERNAL,
       .dstSubpass = 0,
+
       .srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
       .dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+
       .srcAccessMask = 0,
       .dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT};
 
@@ -182,22 +184,22 @@ bool VulkanWrapper::make_render_pass() {
                              .dependencyCount = 1,
                              .pDependencies = &dependency};
 
-  return vkCreateRenderPass(data_.logical_device,
+  return vkCreateRenderPass(data_.logicalDevice,
                             &renderPassInfo,
                             nullptr,
-                            &data_.render_pass) == VK_SUCCESS &&
-         data_.render_pass != nullptr;
+                            &data_.renderPass) == VK_SUCCESS &&
+         data_.renderPass != nullptr;
 }
 
 bool VulkanWrapper::make_frame_buffers() {
-  data_.swap_chain_frame_buffers.resize(data_.swap_chain_image_views.size());
+  data_.swapchainFrameBuffers.resize(data_.swapchainImageViews.size());
 
-  for (size_t i = 0; i < data_.swap_chain_image_views.size(); ++i) {
-    VkImageView attachments[] = {data_.swap_chain_image_views[i]};
+  for (auto i : std::views::iota(0u, data_.swapchainImageViews.size())) {
+    VkImageView attachments[] = {data_.swapchainImageViews[i]};
 
     auto frameBufferInfo = VkFramebufferCreateInfo{
         .sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
-        .renderPass = data_.render_pass,
+        .renderPass = data_.renderPass,
         .attachmentCount = 1,
         .pAttachments = attachments,
         .width = data_.extent.width,
@@ -205,10 +207,10 @@ bool VulkanWrapper::make_frame_buffers() {
         .layers = 1,
     };
 
-    if (vkCreateFramebuffer(data_.logical_device,
+    if (vkCreateFramebuffer(data_.logicalDevice,
                             &frameBufferInfo,
                             nullptr,
-                            &data_.swap_chain_frame_buffers[i]) != VK_SUCCESS)
+                            &data_.swapchainFrameBuffers[i]) != VK_SUCCESS)
       return false;
   }
 
@@ -219,29 +221,29 @@ bool VulkanWrapper::make_command_pool() {
   auto poolInfo = VkCommandPoolCreateInfo{
       .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
       .flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
-      .queueFamilyIndex = data_.graphics_family,
+      .queueFamilyIndex = data_.graphicsFamily,
   };
 
-  return vkCreateCommandPool(data_.logical_device,
+  return vkCreateCommandPool(data_.logicalDevice,
                              &poolInfo,
                              nullptr,
-                             &data_.command_pool) == VK_SUCCESS &&
-         data_.command_pool != nullptr;
+                             &data_.commandPool) == VK_SUCCESS &&
+         data_.commandPool != nullptr;
 }
 
 bool VulkanWrapper::make_command_buffers() {
-  data_.command_buffers.resize(data_.swap_chain_frame_buffers.size());
+  data_.commandBuffers.resize(data_.swapchainFrameBuffers.size());
 
   auto allocInfo = VkCommandBufferAllocateInfo{
       .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
-      .commandPool = data_.command_pool,
+      .commandPool = data_.commandPool,
       .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
-      .commandBufferCount = static_cast<uint32_t>(data_.command_buffers.size()),
+      .commandBufferCount = static_cast<uint32_t>(data_.commandBuffers.size()),
   };
 
-  return vkAllocateCommandBuffers(data_.logical_device,
+  return vkAllocateCommandBuffers(data_.logicalDevice,
                                   &allocInfo,
-                                  data_.command_buffers.data()) == VK_SUCCESS;
+                                  data_.commandBuffers.data()) == VK_SUCCESS;
 }
 
 bool VulkanWrapper::load_shader() {
@@ -250,10 +252,10 @@ bool VulkanWrapper::load_shader() {
   auto fragCode =
       util::readSpvFile(std::string(SHADER_PATH) + "/simple.frag.spv");
 
-  data_.vert_shader_module =
-      util::createShaderModule(data_.logical_device, vertCode);
-  data_.frag_shader_module =
-      util::createShaderModule(data_.logical_device, fragCode);
+  data_.vertShaderModule =
+      util::createShaderModule(data_.logicalDevice, vertCode);
+  data_.fragShaderModule =
+      util::createShaderModule(data_.logicalDevice, fragCode);
 
   return true;
 }
@@ -262,10 +264,9 @@ bool VulkanWrapper::make_pipeline() {
   auto vertShaderStageInfo = VkPipelineShaderStageCreateInfo{
       .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
       .stage = VK_SHADER_STAGE_VERTEX_BIT,
-      .module = data_.vert_shader_module,  // To be set after loading shader
+      .module = data_.vertShaderModule,
       .pName = "main",
   };
-
   auto vertexInputInfo = VkPipelineVertexInputStateCreateInfo{
       .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
       .vertexBindingDescriptionCount = 0,
@@ -273,11 +274,10 @@ bool VulkanWrapper::make_pipeline() {
       .vertexAttributeDescriptionCount = 0,
       .pVertexAttributeDescriptions = nullptr,
   };
-
   auto fragShaderStageInfo = VkPipelineShaderStageCreateInfo{
       .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
       .stage = VK_SHADER_STAGE_FRAGMENT_BIT,
-      .module = data_.frag_shader_module,  // To be set after loading shader
+      .module = data_.fragShaderModule,
       .pName = "main",
   };
 
@@ -298,12 +298,10 @@ bool VulkanWrapper::make_pipeline() {
       .minDepth = 0.0f,
       .maxDepth = 1.0f,
   };
-
   auto scissor = VkRect2D{
       .offset = {0, 0},
       .extent = data_.extent,
   };
-
   auto viewPortState = VkPipelineViewportStateCreateInfo{
       .sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
       .viewportCount = 1,
@@ -316,16 +314,16 @@ bool VulkanWrapper::make_pipeline() {
       .sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
       .depthClampEnable = VK_FALSE,
       .rasterizerDiscardEnable = VK_FALSE,
-      .polygonMode = VK_POLYGON_MODE_FILL,
-      .cullMode = VK_CULL_MODE_BACK_BIT,
-      .frontFace = VK_FRONT_FACE_CLOCKWISE,
+      .polygonMode = params_.rasterizerConfig.polygonMode,
+      .cullMode = params_.rasterizerConfig.cullMode,
+      .frontFace = params_.rasterizerConfig.frontFace,
       .depthBiasEnable = VK_FALSE,
       .lineWidth = 1.0f,
   };
 
   auto multisampling = VkPipelineMultisampleStateCreateInfo{
       .sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
-      .rasterizationSamples = VK_SAMPLE_COUNT_1_BIT,
+      .rasterizationSamples = params_.colorAttachment.samples,
       .sampleShadingEnable = VK_FALSE,
   };
 
@@ -350,7 +348,7 @@ bool VulkanWrapper::make_pipeline() {
   };
 
   VkPipelineLayout pipelineLayout;
-  if (vkCreatePipelineLayout(data_.logical_device,
+  if (vkCreatePipelineLayout(data_.logicalDevice,
                              &pipelineLayoutInfo,
                              nullptr,
                              &pipelineLayout) != VK_SUCCESS) {
@@ -372,26 +370,26 @@ bool VulkanWrapper::make_pipeline() {
       .pDynamicState = nullptr,
 
       .layout = pipelineLayout,
-      .renderPass = data_.render_pass,
+      .renderPass = data_.renderPass,
       .subpass = 0,
   };
 
-  return vkCreateGraphicsPipelines(data_.logical_device,
+  return vkCreateGraphicsPipelines(data_.logicalDevice,
                                    VK_NULL_HANDLE,
                                    1,
                                    &pipelineInfo,
                                    nullptr,
-                                   &data_.graphics_pipeline) == VK_SUCCESS &&
-         data_.graphics_pipeline != nullptr;
+                                   &data_.graphicsPipeline) == VK_SUCCESS &&
+         data_.graphicsPipeline != nullptr;
 }
 
 bool VulkanWrapper::record_command_buffers() {
-  for (size_t i = 0; i < data_.command_buffers.size(); ++i) {
+  for (size_t i = 0; i < data_.commandBuffers.size(); ++i) {
     auto beginInfo = VkCommandBufferBeginInfo{
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
     };
 
-    vkBeginCommandBuffer(data_.command_buffers[i], &beginInfo);
+    vkBeginCommandBuffer(data_.commandBuffers[i], &beginInfo);
 
     auto clearColor = VkClearValue{
         .color = {{0.1f, 0.1f, 0.15f, 1.0f}},
@@ -399,8 +397,8 @@ bool VulkanWrapper::record_command_buffers() {
 
     auto renderPassInfo = VkRenderPassBeginInfo{
         .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
-        .renderPass = data_.render_pass,
-        .framebuffer = data_.swap_chain_frame_buffers[i],
+        .renderPass = data_.renderPass,
+        .framebuffer = data_.swapchainFrameBuffers[i],
         .renderArea{
             .offset = {0, 0},
             .extent = data_.extent,
@@ -409,19 +407,19 @@ bool VulkanWrapper::record_command_buffers() {
         .pClearValues = &clearColor,
     };
 
-    vkCmdBeginRenderPass(data_.command_buffers[i],
+    vkCmdBeginRenderPass(data_.commandBuffers[i],
                          &renderPassInfo,
                          VK_SUBPASS_CONTENTS_INLINE);
 
-    vkCmdBindPipeline(data_.command_buffers[i],
+    vkCmdBindPipeline(data_.commandBuffers[i],
                       VK_PIPELINE_BIND_POINT_GRAPHICS,
-                      data_.graphics_pipeline);
+                      data_.graphicsPipeline);
 
-    vkCmdDraw(data_.command_buffers[i], 3, 1, 0, 0);
+    vkCmdDraw(data_.commandBuffers[i], 3, 1, 0, 0);
 
-    vkCmdEndRenderPass(data_.command_buffers[i]);
+    vkCmdEndRenderPass(data_.commandBuffers[i]);
 
-    if (vkEndCommandBuffer(data_.command_buffers[i]) != VK_SUCCESS) {
+    if (vkEndCommandBuffer(data_.commandBuffers[i]) != VK_SUCCESS) {
       return false;
     }
   }
@@ -434,32 +432,32 @@ bool VulkanWrapper::init_sync() {
       .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
   };
 
-  return vkCreateSemaphore(data_.logical_device,
+  return vkCreateSemaphore(data_.logicalDevice,
                            &semaphoreInfo,
                            nullptr,
-                           &data_.image_available_semaphore) == VK_SUCCESS &&
-         vkCreateSemaphore(data_.logical_device,
+                           &data_.imageAvailableSemaphore) == VK_SUCCESS &&
+         vkCreateSemaphore(data_.logicalDevice,
                            &semaphoreInfo,
                            nullptr,
-                           &data_.render_finished_semaphore) == VK_SUCCESS;
+                           &data_.renderFinishedSemaphore) == VK_SUCCESS;
 }
 
 void VulkanWrapper::run() {
   uint32_t imageIndex;
 
-  vkAcquireNextImageKHR(data_.logical_device,
-                        data_.swap_chain,
+  vkAcquireNextImageKHR(data_.logicalDevice,
+                        data_.swapchain,
                         UINT64_MAX,
-                        data_.image_available_semaphore,
+                        data_.imageAvailableSemaphore,
                         VK_NULL_HANDLE,
                         &imageIndex);
 
-  VkSemaphore waitSemaphores[] = {data_.image_available_semaphore};
+  VkSemaphore waitSemaphores[] = {data_.imageAvailableSemaphore};
 
   VkPipelineStageFlags waitStages[] = {
       VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
 
-  VkSemaphore signalSemaphores[] = {data_.render_finished_semaphore};
+  VkSemaphore signalSemaphores[] = {data_.renderFinishedSemaphore};
 
   auto submitInfo = VkSubmitInfo{
       .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
@@ -468,15 +466,15 @@ void VulkanWrapper::run() {
       .pWaitDstStageMask = waitStages,
 
       .commandBufferCount = 1,
-      .pCommandBuffers = &data_.command_buffers[imageIndex],
+      .pCommandBuffers = &data_.commandBuffers[imageIndex],
 
       .signalSemaphoreCount = 1,
       .pSignalSemaphores = signalSemaphores,
   };
 
-  vkQueueSubmit(data_.graphics_queue, 1, &submitInfo, VK_NULL_HANDLE);
+  vkQueueSubmit(data_.graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
 
-  VkSwapchainKHR swapchains[] = {data_.swap_chain};
+  VkSwapchainKHR swapchains[] = {data_.swapchain};
 
   auto presentInfo = VkPresentInfoKHR{
       .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
@@ -488,5 +486,5 @@ void VulkanWrapper::run() {
       .pImageIndices = &imageIndex,
   };
 
-  vkQueuePresentKHR(data_.present_queue, &presentInfo);
+  vkQueuePresentKHR(data_.presentQueue, &presentInfo);
 }
