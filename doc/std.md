@@ -1,6 +1,5 @@
 # Coding Standard.
 
-- clang-format
-- Google C++ Style
+- clang-format (Follow the .clang-format file)
 - Allows exceptions
-- Template comes first
+- Template comes first (Less virtual table)
