@@ -18,6 +18,7 @@ target_include_directories(vulkanDemo PRIVATE
     src/util
     src/WindowConfig
     src/GraphicsAPIWrapper
+    src/Models
 )
 
 target_link_libraries(vulkanDemo PRIVATE
@@ -29,4 +30,6 @@ target_link_libraries(vulkanDemo PRIVATE
 target_sources(vulkanDemo PRIVATE
     src/WindowConfig/GlfwWindowConfig.cpp
     src/GraphicsAPIWrapper/VulkanWrapper.cpp
+    src/Models/Vertex.cpp
+    src/Models/Sphere.cpp
 )
