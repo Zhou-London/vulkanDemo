@@ -68,15 +68,27 @@ int main() {
                           .vertShaderModule = nullptr,
                           .fragShaderModule = nullptr,
                           .graphicsPipeline = nullptr,
+                          .pipelineLayout = nullptr,
 
                           .imageAvailableSemaphore = nullptr,
                           .renderFinishedSemaphore = nullptr,
 
-                          .bufferData = {
-                              .vertexBuffer = nullptr,
-                              .vertexBufferMemory = nullptr,
-                              .indexBuffer = nullptr,
-                              .indexBufferMemory = nullptr,
+                          .bufferData =
+                              {
+                                  .vertexBuffer = nullptr,
+                                  .vertexBufferMemory = nullptr,
+
+                                  .indexBuffer = nullptr,
+                                  .indexBufferMemory = nullptr,
+
+                                  .uniformBuffers = {},
+                                  .uniformBufferMemory = {},
+                              },
+
+                          .descriptData = {
+                              .descriptorSetLayout = nullptr,
+                              .descriptorPool = nullptr,
+                              .descriptorSets = {},
                           }});
 #else
   // ! Support More APIs

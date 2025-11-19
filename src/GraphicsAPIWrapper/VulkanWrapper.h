@@ -1,7 +1,7 @@
 #pragma once
 
-#include "Sphere.h"
 #include "config.h"
+#include "Sphere.h"
 #include <GLFW/glfw3.h>
 
 #include <cstdint>
@@ -33,6 +33,7 @@ class VulkanWrapper {
     VkShaderModule vertShaderModule;
     VkShaderModule fragShaderModule;
     VkPipeline graphicsPipeline;
+    VkPipelineLayout pipelineLayout;
 
     VkSemaphore imageAvailableSemaphore;
     VkSemaphore renderFinishedSemaphore;
@@ -43,7 +44,16 @@ class VulkanWrapper {
 
       VkBuffer indexBuffer;
       VkDeviceMemory indexBufferMemory;
+
+      std::vector<VkBuffer> uniformBuffers;
+      std::vector<VkDeviceMemory> uniformBufferMemory;
     } bufferData;
+
+    struct DescriptData {
+      VkDescriptorSetLayout descriptorSetLayout;
+      VkDescriptorPool descriptorPool;
+      std::vector<VkDescriptorSet> descriptorSets;
+    } descriptData;
   };
   struct Params {
     std::string applicationName;
@@ -91,6 +101,11 @@ class VulkanWrapper {
   bool load_shader();
   bool make_vertex_buffer();
   bool make_index_buffer();
+  bool make_uniform_buffers();
+  bool make_descriptor_pool();
+  bool make_descriptor_sets();
+
+  bool make_descriptor_set_layout();
 
   bool make_pipeline();
   bool record_command_buffers();
@@ -102,6 +117,8 @@ class VulkanWrapper {
                    VkDeviceMemory& bufferMemory);
 
   bool init_sync();
+
+  void update_uniform_buffer(uint32_t currentImage);
 
   bool init();
   void run();

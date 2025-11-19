@@ -2,8 +2,12 @@
 #include "config.h"
 #include "shader_util.h"
 #include "vulkan_util.h"
+#include "UBO.h"
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <glm/ext/matrix_transform.hpp>
+#include <glm/fwd.hpp>
 #include <ranges>
 #include <string>
 #include <vector>
@@ -350,15 +354,15 @@ bool VulkanWrapper::make_pipeline() {
 
   auto pipelineLayoutInfo = VkPipelineLayoutCreateInfo{
       .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
-      .setLayoutCount = 0,
+      .setLayoutCount = 1,
+      .pSetLayouts = &data_.descriptData.descriptorSetLayout,
       .pushConstantRangeCount = 0,
   };
 
-  VkPipelineLayout pipelineLayout;
   if (vkCreatePipelineLayout(data_.logicalDevice,
                              &pipelineLayoutInfo,
                              nullptr,
-                             &pipelineLayout) != VK_SUCCESS) {
+                             &data_.pipelineLayout) != VK_SUCCESS) {
     return false;
   }
 
@@ -376,7 +380,7 @@ bool VulkanWrapper::make_pipeline() {
       .pColorBlendState = &colorBlending,
       .pDynamicState = nullptr,
 
-      .layout = pipelineLayout,
+      .layout = data_.pipelineLayout,
       .renderPass = data_.renderPass,
       .subpass = 0,
   };
@@ -434,6 +438,15 @@ bool VulkanWrapper::record_command_buffers() {
                          data_.bufferData.indexBuffer,
                          0,
                          VK_INDEX_TYPE_UINT16);
+
+    vkCmdBindDescriptorSets(data_.commandBuffers[i],
+                            VK_PIPELINE_BIND_POINT_GRAPHICS,
+                            data_.pipelineLayout,
+                            0,
+                            1,
+                            &data_.descriptData.descriptorSets[i],
+                            0,
+                            nullptr);
 
     vkCmdDrawIndexed(data_.commandBuffers[i],
                      static_cast<uint32_t>(params_.sphere.indices.size()),
@@ -519,7 +532,114 @@ bool VulkanWrapper::make_index_buffer() {
   return result == VK_SUCCESS;
 }
 
-// helper
+bool VulkanWrapper::make_uniform_buffers() {
+  VkDeviceSize bufferSize = sizeof(UBO);
+  size_t imageCount = data_.swapchainImageViews.size();  // 比如 3 张
+
+  data_.bufferData.uniformBuffers.resize(imageCount);
+  data_.bufferData.uniformBufferMemory.resize(imageCount);
+
+  bool result = true;
+  for (size_t i = 0; i < imageCount; i++) {
+    result = make_buffer(bufferSize,
+                         VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                             VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                         data_.bufferData.uniformBuffers[i],
+                         data_.bufferData.uniformBufferMemory[i]) &&
+             result;
+  }
+
+  return result;
+}
+
+bool VulkanWrapper::make_descriptor_pool() {
+  size_t imageCount = data_.swapchainImageViews.size();
+  auto poolSize = VkDescriptorPoolSize{
+      .type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+      .descriptorCount = static_cast<uint32_t>(imageCount),
+  };
+
+  auto poolInfo = VkDescriptorPoolCreateInfo{
+      .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
+      .maxSets = static_cast<uint32_t>(imageCount),
+      .poolSizeCount = 1,
+      .pPoolSizes = &poolSize,
+  };
+
+  return vkCreateDescriptorPool(data_.logicalDevice,
+                                &poolInfo,
+                                nullptr,
+                                &data_.descriptData.descriptorPool) ==
+         VK_SUCCESS;
+}
+
+bool VulkanWrapper::make_descriptor_sets() {
+  size_t imageCount = data_.swapchainImageViews.size();
+  auto layouts = std::vector<VkDescriptorSetLayout>(
+      imageCount,
+      data_.descriptData.descriptorSetLayout);
+
+  auto allocInfo = VkDescriptorSetAllocateInfo{
+      .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+      .descriptorPool = data_.descriptData.descriptorPool,
+      .descriptorSetCount = static_cast<uint32_t>(imageCount),
+      .pSetLayouts = layouts.data(),
+  };
+
+  data_.descriptData.descriptorSets.resize(imageCount);
+  vkAllocateDescriptorSets(data_.logicalDevice,
+                           &allocInfo,
+                           data_.descriptData.descriptorSets.data());
+
+  for (auto i : std::ranges::views::iota(0u, imageCount)) {
+    auto bufferInfo = VkDescriptorBufferInfo{
+        .buffer = data_.bufferData.uniformBuffers[i],
+        .offset = 0,
+        .range = sizeof(UBO),
+    };
+
+    auto descriptorWrite = VkWriteDescriptorSet{
+        .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+        .dstSet = data_.descriptData.descriptorSets[i],
+        .dstBinding = 0,
+        .dstArrayElement = 0,
+        .descriptorCount = 1,
+        .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+        .pBufferInfo = &bufferInfo,
+    };
+
+    vkUpdateDescriptorSets(data_.logicalDevice,
+                           1,
+                           &descriptorWrite,
+                           0,
+                           nullptr);
+  }
+
+  return data_.descriptData.descriptorSets.size() == imageCount;
+}
+
+bool VulkanWrapper::make_descriptor_set_layout() {
+  auto uboLayoutBinding = VkDescriptorSetLayoutBinding{
+      .binding = 0,
+      .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+      .descriptorCount = 1,
+      .stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
+  };
+
+  auto uboLayoutInfo = VkDescriptorSetLayoutCreateInfo{
+      .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+      .bindingCount = 1,
+      .pBindings = &uboLayoutBinding,
+  };
+
+  return vkCreateDescriptorSetLayout(data_.logicalDevice,
+                                     &uboLayoutInfo,
+                                     nullptr,
+                                     &data_.descriptData.descriptorSetLayout) ==
+         VK_SUCCESS;
+}
+
 bool VulkanWrapper::make_buffer(VkDeviceSize size,
                                 VkBufferUsageFlags usage,
                                 VkMemoryPropertyFlags properties,
@@ -556,13 +676,55 @@ bool VulkanWrapper::make_buffer(VkDeviceSize size,
              VK_SUCCESS;
 }
 
+void VulkanWrapper::update_uniform_buffer(uint32_t currentImage) {
+  static auto startTime = std::chrono::high_resolution_clock::now();
+
+  auto currentTime = std::chrono::high_resolution_clock::now();
+  float time = std::chrono::duration<float, std::chrono::seconds::period>(
+                   currentTime - startTime)
+                   .count();
+
+  auto ubo = UBO{
+      .model = glm::rotate(glm::mat4(1.0f),
+                           time * glm::radians(90.0f),
+                           glm::vec3(0.0f, 0.0f, 1.0f)),
+
+      .view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f),
+                          glm::vec3(0.0f, 0.0f, 0.0f),
+                          glm::vec3(0.0f, 0.0f, 1.0f)),
+
+      .proj = glm::perspective(
+          glm::radians(45.0f),
+          static_cast<float>(data_.extent.width) / data_.extent.height,
+          0.1f,
+          10.0f),
+  };
+
+  ubo.proj[1][1] *= -1;
+
+  void* data;
+  vkMapMemory(data_.logicalDevice,
+              data_.bufferData.uniformBufferMemory[currentImage],
+              0,
+              sizeof(ubo),
+              0,
+              &data);
+
+  memcpy(data, &ubo, sizeof(ubo));
+
+  vkUnmapMemory(data_.logicalDevice,
+                data_.bufferData.uniformBufferMemory[currentImage]);
+}
+
 bool VulkanWrapper::init() {
   return make_instance() && make_surface() && make_logical_device() &&
          make_swapchain() && make_swapchain_image_views() &&
          make_render_pass() && make_frame_buffers() && make_command_pool() &&
          make_command_buffers() && load_shader() && make_vertex_buffer() &&
-         make_index_buffer() && make_pipeline() && record_command_buffers() &&
-         init_sync();
+         make_index_buffer() && make_uniform_buffers() &&
+         make_descriptor_set_layout() && make_descriptor_pool() &&
+         make_descriptor_sets() && make_pipeline() &&
+         record_command_buffers() && init_sync();
 }
 
 void VulkanWrapper::run() {
@@ -594,6 +756,8 @@ void VulkanWrapper::run() {
       .signalSemaphoreCount = 1,
       .pSignalSemaphores = signalSemaphores,
   };
+
+  update_uniform_buffer(imageIndex);
 
   vkQueueSubmit(data_.graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
 
