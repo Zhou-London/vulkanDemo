@@ -15,9 +15,10 @@ int main() {
       !glfwWindowConfig.createWindow(1600, 1200, "Vulkan Demo"))
     return -1;
 
-#ifdef GRAPHICS_API_VULKAN
   Sphere sphere;
   sphere.generateSphere(0.5f, 50, 50);
+
+#ifdef GRAPHICS_API_VULKAN
 
   auto graphicsAPIWrapper = GraphicsAPIWrapper<VulkanWrapper>(
       VulkanWrapper::Params{
