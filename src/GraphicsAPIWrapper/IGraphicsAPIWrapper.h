@@ -8,4 +8,5 @@ concept IGraphicsAPIWrapper = requires(T backend) {
 
   { backend.init() } -> std::same_as<bool>;
   { backend.run() } -> std::same_as<void>;
+  { backend.clean_up() } -> std::same_as<void>;
 };

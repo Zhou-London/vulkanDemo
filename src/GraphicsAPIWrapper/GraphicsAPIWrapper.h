@@ -13,6 +13,8 @@ class GraphicsAPIWrapper {
 
   void run() { return backend_.run(); }
 
+  void clean_up() { return backend_.clean_up(); }
+
  private:
   B backend_;
 };
