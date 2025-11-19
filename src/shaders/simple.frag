@@ -7,7 +7,7 @@ layout(location = 2) in vec3 fragPos;
 layout(location = 0) out vec4 outColor;
 
 void main() {
-  vec3 lightPos = vec3(0.0, 0.0, 0.0);
+  vec3 lightPos = vec3(10.0, 10.0, 10.0);
   vec3 lightColor = vec3(1.0, 1.0, 1.0);
 
   float ambientStrength = 0.1;

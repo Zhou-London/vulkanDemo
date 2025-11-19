@@ -54,6 +54,12 @@ class VulkanWrapper {
       VkDescriptorPool descriptorPool;
       std::vector<VkDescriptorSet> descriptorSets;
     } descriptData;
+
+    struct DepthData {
+      VkImage depthImage;
+      VkDeviceMemory depthImageMemory;
+      VkImageView depthImageView;
+    } depthData;
   };
   struct Params {
     std::string applicationName;
@@ -104,8 +110,9 @@ class VulkanWrapper {
   bool make_uniform_buffers();
   bool make_descriptor_pool();
   bool make_descriptor_sets();
-
   bool make_descriptor_set_layout();
+
+  bool make_depth_resources();
 
   bool make_pipeline();
   bool record_command_buffers();
@@ -122,6 +129,7 @@ class VulkanWrapper {
 
   bool init();
   void run();
+  void clean_up();
 
   const Params& params() const noexcept { return params_; }
 

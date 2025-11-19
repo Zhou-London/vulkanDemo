@@ -1,5 +1,6 @@
-#include "Models/Sphere.h"
 #include "config.h"
+
+#include "Models/Sphere.h"
 #include <cstdint>
 #include <glm/glm.hpp>
 #include <iostream>
@@ -49,58 +50,70 @@ int main() {
               },
           .sphere = sphere,
       },
-      VulkanWrapper::Data{.instance = nullptr,
-                          .surface = nullptr,
+      VulkanWrapper::Data{
+          .instance = nullptr,
+          .surface = nullptr,
 
-                          .physicalDevice = nullptr,
-                          .logicalDevice = nullptr,
+          .physicalDevice = nullptr,
+          .logicalDevice = nullptr,
 
-                          .graphicsFamily = UINT32_MAX,
-                          .presentFamily = UINT32_MAX,
-                          .graphicsQueue = nullptr,
-                          .presentQueue = nullptr,
+          .graphicsFamily = UINT32_MAX,
+          .presentFamily = UINT32_MAX,
+          .graphicsQueue = nullptr,
+          .presentQueue = nullptr,
 
-                          .extent = {.width = 0, .height = 0},
+          .extent = {.width = 0, .height = 0},
 
-                          .swapchain = nullptr,
-                          .renderPass = nullptr,
-                          .commandPool = nullptr,
+          .swapchain = nullptr,
+          .renderPass = nullptr,
+          .commandPool = nullptr,
 
-                          .vertShaderModule = nullptr,
-                          .fragShaderModule = nullptr,
-                          .graphicsPipeline = nullptr,
-                          .pipelineLayout = nullptr,
+          .vertShaderModule = nullptr,
+          .fragShaderModule = nullptr,
+          .graphicsPipeline = nullptr,
+          .pipelineLayout = nullptr,
 
-                          .imageAvailableSemaphore = nullptr,
-                          .renderFinishedSemaphore = nullptr,
+          .imageAvailableSemaphore = nullptr,
+          .renderFinishedSemaphore = nullptr,
 
-                          .bufferData =
-                              {
-                                  .vertexBuffer = nullptr,
-                                  .vertexBufferMemory = nullptr,
+          .bufferData =
+              {
+                  .vertexBuffer = nullptr,
+                  .vertexBufferMemory = nullptr,
 
-                                  .indexBuffer = nullptr,
-                                  .indexBufferMemory = nullptr,
+                  .indexBuffer = nullptr,
+                  .indexBufferMemory = nullptr,
 
-                                  .uniformBuffers = {},
-                                  .uniformBufferMemory = {},
-                              },
+                  .uniformBuffers = {},
+                  .uniformBufferMemory = {},
+              },
 
-                          .descriptData = {
-                              .descriptorSetLayout = nullptr,
-                              .descriptorPool = nullptr,
-                              .descriptorSets = {},
-                          }});
+          .descriptData =
+              {
+                  .descriptorSetLayout = nullptr,
+                  .descriptorPool = nullptr,
+                  .descriptorSets = {},
+              },
+
+          .depthData =
+              {
+                  .depthImage = nullptr,
+                  .depthImageMemory = nullptr,
+                  .depthImageView = nullptr,
+              },
+      });
 #else
   // ! Support More APIs
   auto graphicsAPIWrapper = nullptr;
 #endif
 
   try {
-    if (graphicsAPIWrapper.init())
+    if (graphicsAPIWrapper.init()) {
       std::cout << "Vulkan Program Started.\n";
-    else
+    } else {
+      std::cout << "Init error.\n";
       return -1;
+    }
 
     while (!glfwWindowConfig.shouldClose()) {
       glfwWindowConfig.pollEvents();
@@ -112,6 +125,7 @@ int main() {
 
   } catch (const std::exception& e) {
     std::cerr << "Exception: " << e.what() << std::endl;
+    return -1;
   }
   return 0;
 }
