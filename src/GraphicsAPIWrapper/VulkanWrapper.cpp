@@ -809,7 +809,7 @@ void VulkanWrapper::update_uniform_buffer(uint32_t currentImage) {
 
       .proj = glm::perspective(
           glm::radians(45.0f),
-          static_cast<float>(data_.extent.width) / data_.extent.height,
+          static_cast<float>(data_.extent.width) / static_cast<float>(data_.extent.height),
           0.1f,
           10.0f),
   };

@@ -13,11 +13,11 @@ int main() {
   GlfwWindowConfig glfwWindowConfig;
 
   if (!glfwWindowConfig.init() ||
-      !glfwWindowConfig.createWindow(1600, 1200, "Vulkan Demo"))
+      !glfwWindowConfig.createWindow(3840, 2160, "Vulkan Demo"))
     return -1;
 
   Sphere sphere;
-  sphere.generateSphere(0.5f, 50, 50);
+  sphere.generateSphere(1.0f, 64, 64);
 
 #ifdef GRAPHICS_API_VULKAN
 
