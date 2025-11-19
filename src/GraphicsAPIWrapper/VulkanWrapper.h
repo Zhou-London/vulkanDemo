@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Sphere.h"
 #include "config.h"
 #include <GLFW/glfw3.h>
 
@@ -35,6 +36,14 @@ class VulkanWrapper {
 
     VkSemaphore imageAvailableSemaphore;
     VkSemaphore renderFinishedSemaphore;
+
+    struct BufferData {
+      VkBuffer vertexBuffer;
+      VkDeviceMemory vertexBufferMemory;
+
+      VkBuffer indexBuffer;
+      VkDeviceMemory indexBufferMemory;
+    } bufferData;
   };
   struct Params {
     std::string applicationName;
@@ -62,6 +71,8 @@ class VulkanWrapper {
       VkCullModeFlags cullMode;
       VkFrontFace frontFace;
     } rasterizerConfig;
+
+    Sphere sphere;
   };
 
   VulkanWrapper(Params&& params, Data&& data);
@@ -76,11 +87,23 @@ class VulkanWrapper {
   bool make_frame_buffers();
   bool make_command_pool();
   bool make_command_buffers();
+
   bool load_shader();
+  bool make_vertex_buffer();
+  bool make_index_buffer();
+
   bool make_pipeline();
   bool record_command_buffers();
 
+  bool make_buffer(VkDeviceSize size,
+                   VkBufferUsageFlags usage,
+                   VkMemoryPropertyFlags properties,
+                   VkBuffer& buffer,
+                   VkDeviceMemory& bufferMemory);
+
   bool init_sync();
+
+  bool init();
   void run();
 
   const Params& params() const noexcept { return params_; }

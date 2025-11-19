@@ -267,12 +267,19 @@ bool VulkanWrapper::make_pipeline() {
       .module = data_.vertShaderModule,
       .pName = "main",
   };
+
+  auto bindingDescription = Vertex::getBindingDescription();
+  auto attributeDescriptions = Vertex::getAttributeDescriptions();
+
   auto vertexInputInfo = VkPipelineVertexInputStateCreateInfo{
       .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
-      .vertexBindingDescriptionCount = 0,
-      .pVertexBindingDescriptions = nullptr,
-      .vertexAttributeDescriptionCount = 0,
-      .pVertexAttributeDescriptions = nullptr,
+
+      .vertexBindingDescriptionCount = 1,
+      .pVertexBindingDescriptions = &bindingDescription,
+
+      .vertexAttributeDescriptionCount =
+          static_cast<uint32_t>(attributeDescriptions.size()),
+      .pVertexAttributeDescriptions = attributeDescriptions.data(),
   };
   auto fragShaderStageInfo = VkPipelineShaderStageCreateInfo{
       .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
@@ -415,7 +422,25 @@ bool VulkanWrapper::record_command_buffers() {
                       VK_PIPELINE_BIND_POINT_GRAPHICS,
                       data_.graphicsPipeline);
 
-    vkCmdDraw(data_.commandBuffers[i], 3, 1, 0, 0);
+    VkBuffer vertexBuffers[] = {data_.bufferData.vertexBuffer};
+    VkDeviceSize offsets[] = {0};
+    vkCmdBindVertexBuffers(data_.commandBuffers[i],
+                           0,
+                           1,
+                           vertexBuffers,
+                           offsets);
+
+    vkCmdBindIndexBuffer(data_.commandBuffers[i],
+                         data_.bufferData.indexBuffer,
+                         0,
+                         VK_INDEX_TYPE_UINT16);
+
+    vkCmdDrawIndexed(data_.commandBuffers[i],
+                     static_cast<uint32_t>(params_.sphere.indices.size()),
+                     1,
+                     0,
+                     0,
+                     1);
 
     vkCmdEndRenderPass(data_.commandBuffers[i]);
 
@@ -440,6 +465,104 @@ bool VulkanWrapper::init_sync() {
                            &semaphoreInfo,
                            nullptr,
                            &data_.renderFinishedSemaphore) == VK_SUCCESS;
+}
+
+bool VulkanWrapper::make_vertex_buffer() {
+  VkDeviceSize bufferSize =
+      sizeof(params_.sphere.vertices[0]) * params_.sphere.vertices.size();
+
+  make_buffer(bufferSize,
+              VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+              VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                  VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+              data_.bufferData.vertexBuffer,
+              data_.bufferData.vertexBufferMemory);
+
+  void* data;
+  auto result = vkMapMemory(data_.logicalDevice,
+                            data_.bufferData.vertexBufferMemory,
+                            0,
+                            bufferSize,
+                            0,
+                            &data);
+
+  memcpy(data, params_.sphere.vertices.data(), bufferSize);
+
+  vkUnmapMemory(data_.logicalDevice, data_.bufferData.vertexBufferMemory);
+
+  return result == VK_SUCCESS;
+}
+
+bool VulkanWrapper::make_index_buffer() {
+  VkDeviceSize bufferSize =
+      sizeof(params_.sphere.indices[0]) * params_.sphere.indices.size();
+
+  make_buffer(bufferSize,
+              VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+              VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                  VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+              data_.bufferData.indexBuffer,
+              data_.bufferData.indexBufferMemory);
+
+  void* data;
+  auto result = vkMapMemory(data_.logicalDevice,
+                            data_.bufferData.indexBufferMemory,
+                            0,
+                            bufferSize,
+                            0,
+                            &data);
+
+  memcpy(data, params_.sphere.indices.data(), (size_t)bufferSize);
+
+  vkUnmapMemory(data_.logicalDevice, data_.bufferData.indexBufferMemory);
+
+  return result == VK_SUCCESS;
+}
+
+// helper
+bool VulkanWrapper::make_buffer(VkDeviceSize size,
+                                VkBufferUsageFlags usage,
+                                VkMemoryPropertyFlags properties,
+                                VkBuffer& buffer,
+                                VkDeviceMemory& bufferMemory) {
+  auto bufferInfo = VkBufferCreateInfo{
+      .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+      .size = size,
+      .usage = usage,
+      .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+  };
+
+  vkCreateBuffer(data_.logicalDevice, &bufferInfo, nullptr, &buffer);
+
+  VkMemoryRequirements memRequirements;
+  vkGetBufferMemoryRequirements(data_.logicalDevice, buffer, &memRequirements);
+
+  auto allocInfo = VkMemoryAllocateInfo{
+      .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+      .allocationSize = memRequirements.size,
+      .memoryTypeIndex = util::find_memory_type(data_.physicalDevice,
+                                                memRequirements.memoryTypeBits,
+                                                properties),
+  };
+
+  return vkAllocateMemory(data_.logicalDevice,
+                          &allocInfo,
+                          nullptr,
+                          &bufferMemory) == VK_SUCCESS
+
+         &&
+
+         vkBindBufferMemory(data_.logicalDevice, buffer, bufferMemory, 0) ==
+             VK_SUCCESS;
+}
+
+bool VulkanWrapper::init() {
+  return make_instance() && make_surface() && make_logical_device() &&
+         make_swapchain() && make_swapchain_image_views() &&
+         make_render_pass() && make_frame_buffers() && make_command_pool() &&
+         make_command_buffers() && load_shader() && make_vertex_buffer() &&
+         make_index_buffer() && make_pipeline() && record_command_buffers() &&
+         init_sync();
 }
 
 void VulkanWrapper::run() {
