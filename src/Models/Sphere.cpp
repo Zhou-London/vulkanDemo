@@ -12,7 +12,7 @@ Sphere::Sphere(float radius, int sectorCount, int stackCount)
       sectorCount_(sectorCount),
       stackCount_(stackCount),
       IModel() {
-  generate();
+  init();
 }
 
 void Sphere::generate() {

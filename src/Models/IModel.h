@@ -1,5 +1,8 @@
 #pragma once
 
+#include <exception>
+#include <stdexcept>
+#include <string>
 #include <vector>
 #include "Vertex.h"
 
@@ -13,4 +16,12 @@ struct IModel {
     vertices.clear();
     indices.clear();
   };
+
+  void init() {
+    try {
+      generate();
+    } catch (std::exception& e) {
+      throw std::runtime_error(std::string("Model Error: ") + e.what());
+    }
+  }
 };
