@@ -563,7 +563,7 @@ bool VulkanWrapper::record_command_buffers() {
                             nullptr);
 
     vkCmdDrawIndexed(data_.commandBuffers[i],
-                     static_cast<uint32_t>(params_.sphere.indices.size()),
+                     static_cast<uint32_t>(params_.model->indices.size()),
                      1,
                      0,
                      0,
@@ -596,7 +596,7 @@ bool VulkanWrapper::init_sync() {
 
 bool VulkanWrapper::make_vertex_buffer() {
   VkDeviceSize bufferSize =
-      sizeof(params_.sphere.vertices[0]) * params_.sphere.vertices.size();
+      sizeof(params_.model->vertices[0]) * params_.model->vertices.size();
 
   make_buffer(bufferSize,
               VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
@@ -613,7 +613,7 @@ bool VulkanWrapper::make_vertex_buffer() {
                             0,
                             &data);
 
-  memcpy(data, params_.sphere.vertices.data(), bufferSize);
+  memcpy(data, params_.model->vertices.data(), bufferSize);
 
   vkUnmapMemory(data_.logicalDevice, data_.bufferData.vertexBufferMemory);
 
@@ -622,7 +622,7 @@ bool VulkanWrapper::make_vertex_buffer() {
 
 bool VulkanWrapper::make_index_buffer() {
   VkDeviceSize bufferSize =
-      sizeof(params_.sphere.indices[0]) * params_.sphere.indices.size();
+      sizeof(params_.model->indices[0]) * params_.model->indices.size();
 
   make_buffer(bufferSize,
               VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
@@ -639,7 +639,7 @@ bool VulkanWrapper::make_index_buffer() {
                             0,
                             &data);
 
-  memcpy(data, params_.sphere.indices.data(), (size_t)bufferSize);
+  memcpy(data, params_.model->indices.data(), (size_t)bufferSize);
 
   vkUnmapMemory(data_.logicalDevice, data_.bufferData.indexBufferMemory);
 

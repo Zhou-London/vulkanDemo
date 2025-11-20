@@ -88,7 +88,7 @@ class VulkanWrapper {
       VkFrontFace frontFace;
     } rasterizerConfig;
 
-    Sphere sphere;
+    IModel* model;
   };
 
   VulkanWrapper(Params&& params, Data&& data);

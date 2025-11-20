@@ -13,11 +13,12 @@ int main() {
   GlfwWindowConfig glfwWindowConfig;
 
   if (!glfwWindowConfig.init() ||
-      !glfwWindowConfig.createWindow(3840, 2160, "Vulkan Demo"))
+      !glfwWindowConfig.createWindow(3840, 2160, "Vulkan Demo")) {
+    std::cerr << "Failed to create GLFW window" << std::endl;
     return -1;
+  }
 
-  Sphere sphere;
-  sphere.generateSphere(1.0f, 64, 64);
+  auto model = Sphere::make_sphere(1.0f, 64, 64);
 
 #ifdef GRAPHICS_API_VULKAN
 
@@ -48,7 +49,7 @@ int main() {
                   .cullMode = VK_CULL_MODE_BACK_BIT,
                   .frontFace = VK_FRONT_FACE_CLOCKWISE,
               },
-          .sphere = sphere,
+          .model = model.get(),
       },
       VulkanWrapper::Data{
           .instance = nullptr,
