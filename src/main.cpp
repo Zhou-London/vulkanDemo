@@ -109,12 +109,7 @@ int main() {
 #endif
 
   try {
-    if (graphicsAPIWrapper.init()) {
-      std::cout << "Vulkan Program Started.\n";
-    } else {
-      std::cout << "Init error.\n";
-      return -1;
-    }
+    graphicsAPIWrapper.init();
 
     while (!glfwWindowConfig.shouldClose()) {
       glfwWindowConfig.pollEvents();
