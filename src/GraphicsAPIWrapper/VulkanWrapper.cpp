@@ -7,16 +7,18 @@
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <exception>
 #include <glm/ext/matrix_transform.hpp>
 #include <glm/fwd.hpp>
 #include <ranges>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
 VulkanWrapper::VulkanWrapper(Params&& params, Data&& data)
     : params_(std::move(params)), data_(std::move(data)) {}
 
-bool VulkanWrapper::make_instance() {
+void VulkanWrapper::make_instance() {
   auto appInfo = VkApplicationInfo{
       .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
       .pApplicationName = "VulkanDemo",
@@ -39,25 +41,29 @@ bool VulkanWrapper::make_instance() {
       .enabledExtensionCount = extensionCount,
       .ppEnabledExtensionNames = extensions,
   };
-  return vkCreateInstance(&createInfo, nullptr, &data_.instance) ==
-             VK_SUCCESS &&
-         data_.instance != nullptr;
+
+  if (vkCreateInstance(&createInfo, nullptr, &data_.instance) != VK_SUCCESS ||
+      data_.instance == nullptr) {
+    throw std::runtime_error("Failed to create instance!");
+  }
 }
 
-bool VulkanWrapper::make_surface() {
-  return glfwCreateWindowSurface(data_.instance,
-                                 params_.window,
-                                 nullptr,
-                                 &data_.surface) == VK_SUCCESS &&
-         data_.surface != nullptr;
+void VulkanWrapper::make_surface() {
+  if (glfwCreateWindowSurface(data_.instance,
+                              params_.window,
+                              nullptr,
+                              &data_.surface) != VK_SUCCESS ||
+      data_.surface == nullptr) {
+    throw std::runtime_error("Failed to create window surface!");
+  }
 }
 
-bool VulkanWrapper::make_logical_device() {
+void VulkanWrapper::make_logical_device() {
   uint32_t deviceCount = 0;
   vkEnumeratePhysicalDevices(data_.instance, &deviceCount, nullptr);
-  if (deviceCount == 0) {
-    return false;
-  }
+
+  if (deviceCount == 0)
+    throw std::runtime_error("Failed to find GPUs with Vulkan support!");
 
   auto physicalDevices = std::vector<VkPhysicalDevice>(deviceCount);
   vkEnumeratePhysicalDevices(data_.instance,
@@ -65,29 +71,35 @@ bool VulkanWrapper::make_logical_device() {
                              physicalDevices.data());
   data_.physicalDevice = physicalDevices[params_.targetGpu];
 
-  return util::createVkGPU(data_.physicalDevice,
-                           data_.surface,
-                           &data_.graphicsFamily,
-                           &data_.presentFamily,
-                           &data_.logicalDevice,
-                           &data_.graphicsQueue,
-                           &data_.presentQueue) &&
-         data_.logicalDevice != nullptr;
+  if (!util::createVkGPU(data_.physicalDevice,
+                         data_.surface,
+                         &data_.graphicsFamily,
+                         &data_.presentFamily,
+                         &data_.logicalDevice,
+                         &data_.graphicsQueue,
+                         &data_.presentQueue) ||
+      data_.logicalDevice == nullptr) {
+    throw std::runtime_error("Failed to create logical device!");
+  }
 }
 
-bool VulkanWrapper::make_swapchain() {
+void VulkanWrapper::make_swapchain() {
   auto swapchainSupport =
       util::querySwapchainSupport(data_.physicalDevice, data_.surface);
 
   auto surfaceFormat =
       util::chooseSwapSurfaceFormat(swapchainSupport.formats, params_.format);
 
-  if (surfaceFormat.format != params_.format) return false;
+  if (surfaceFormat.format != params_.format) {
+    throw std::runtime_error("Failed to make swapchain surface format!");
+  }
 
   auto presentMode = util::chooseSwapPresentMode(swapchainSupport.presentModes,
                                                  params_.presentMode);
 
-  if (presentMode != params_.presentMode) return false;
+  if (presentMode != params_.presentMode) {
+    throw std::runtime_error("Failed to make swapchain present mode!");
+  }
 
   data_.extent = util::chooseSwapExtent(swapchainSupport.cap, params_.window);
 
@@ -101,14 +113,16 @@ bool VulkanWrapper::make_swapchain() {
                                            data_.presentFamily,
                                            swapchainSupport.cap);
 
-  return vkCreateSwapchainKHR(data_.logicalDevice,
-                              &swapchainCreateInfo,
-                              nullptr,
-                              &data_.swapchain) == VK_SUCCESS &&
-         data_.swapchain != nullptr;
+  if (vkCreateSwapchainKHR(data_.logicalDevice,
+                           &swapchainCreateInfo,
+                           nullptr,
+                           &data_.swapchain) != VK_SUCCESS ||
+      data_.swapchain == nullptr) {
+    throw std::runtime_error("Failed to create swapchain!");
+  }
 }
 
-bool VulkanWrapper::make_swapchain_image_views() {
+void VulkanWrapper::make_swapchain_image_views() {
   auto swapchainImages = std::vector<VkImage>(params_.imageCount);
 
   uint32_t imageCount = params_.imageCount;
@@ -117,7 +131,9 @@ bool VulkanWrapper::make_swapchain_image_views() {
                           &imageCount,
                           swapchainImages.data());
 
-  if (swapchainImages.size() != params_.imageCount) return false;
+  if (swapchainImages.size() != params_.imageCount) {
+    throw std::runtime_error("Failed to get swapchain images!");
+  }
 
   for (auto image : swapchainImages) {
     auto viewInfo = VkImageViewCreateInfo{
@@ -145,12 +161,12 @@ bool VulkanWrapper::make_swapchain_image_views() {
     data_.swapchainImageViews.push_back(imageView);
   }
 
-  if (data_.swapchainImageViews.size() != params_.imageCount) return false;
-
-  return true;
+  if (data_.swapchainImageViews.size() != params_.imageCount) {
+    throw std::runtime_error("Failed to create swapchain image views!");
+  }
 }
 
-bool VulkanWrapper::make_depth_resources() {
+void VulkanWrapper::make_depth_resources() {
   auto depthFormat = util::findDepthFormat(data_.physicalDevice);
 
   auto imageInfo = VkImageCreateInfo{
@@ -175,7 +191,7 @@ bool VulkanWrapper::make_depth_resources() {
                     &imageInfo,
                     nullptr,
                     &data_.depthData.depthImage) != VK_SUCCESS) {
-    throw std::runtime_error("failed to create depth image!");
+    throw std::runtime_error("Failed to create depth image!");
   }
 
   VkMemoryRequirements memRequirements;
@@ -196,7 +212,7 @@ bool VulkanWrapper::make_depth_resources() {
                        &allocInfo,
                        nullptr,
                        &data_.depthData.depthImageMemory) != VK_SUCCESS) {
-    throw std::runtime_error("failed to allocate depth image memory!");
+    throw std::runtime_error("Failed to allocate depth image memory!");
   }
 
   vkBindImageMemory(data_.logicalDevice,
@@ -218,13 +234,15 @@ bool VulkanWrapper::make_depth_resources() {
       },
   };
 
-  return vkCreateImageView(data_.logicalDevice,
-                           &imageViewInfo,
-                           nullptr,
-                           &data_.depthData.depthImageView) == VK_SUCCESS;
+  if (vkCreateImageView(data_.logicalDevice,
+                        &imageViewInfo,
+                        nullptr,
+                        &data_.depthData.depthImageView) != VK_SUCCESS) {
+    throw std::runtime_error("Failed to create depth image view!");
+  }
 }
 
-bool VulkanWrapper::make_render_pass() {
+void VulkanWrapper::make_render_pass() {
   auto colorAttachment = VkAttachmentDescription{
       .format = params_.format,
       .samples = params_.colorAttachment.samples,
@@ -289,14 +307,16 @@ bool VulkanWrapper::make_render_pass() {
       .dependencyCount = 1,
       .pDependencies = &dependency};
 
-  return vkCreateRenderPass(data_.logicalDevice,
-                            &renderPassInfo,
-                            nullptr,
-                            &data_.renderPass) == VK_SUCCESS &&
-         data_.renderPass != nullptr;
+  if (vkCreateRenderPass(data_.logicalDevice,
+                         &renderPassInfo,
+                         nullptr,
+                         &data_.renderPass) != VK_SUCCESS ||
+      data_.renderPass == nullptr) {
+    throw std::runtime_error("Failed to create render pass!");
+  }
 }
 
-bool VulkanWrapper::make_frame_buffers() {
+void VulkanWrapper::make_frame_buffers() {
   data_.swapchainFrameBuffers.resize(data_.swapchainImageViews.size());
 
   for (auto i : std::views::iota(0u, data_.swapchainImageViews.size())) {
@@ -317,27 +337,27 @@ bool VulkanWrapper::make_frame_buffers() {
                             &frameBufferInfo,
                             nullptr,
                             &data_.swapchainFrameBuffers[i]) != VK_SUCCESS)
-      return false;
+      throw std::runtime_error("Failed to create frame buffer!");
   }
-
-  return true;
 }
 
-bool VulkanWrapper::make_command_pool() {
+void VulkanWrapper::make_command_pool() {
   auto poolInfo = VkCommandPoolCreateInfo{
       .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
       .flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
       .queueFamilyIndex = data_.graphicsFamily,
   };
 
-  return vkCreateCommandPool(data_.logicalDevice,
-                             &poolInfo,
-                             nullptr,
-                             &data_.commandPool) == VK_SUCCESS &&
-         data_.commandPool != nullptr;
+  if (vkCreateCommandPool(data_.logicalDevice,
+                          &poolInfo,
+                          nullptr,
+                          &data_.commandPool) != VK_SUCCESS ||
+      data_.commandPool == nullptr) {
+    throw std::runtime_error("Failed to create command pool!");
+  }
 }
 
-bool VulkanWrapper::make_command_buffers() {
+void VulkanWrapper::make_command_buffers() {
   data_.commandBuffers.resize(data_.swapchainFrameBuffers.size());
 
   auto allocInfo = VkCommandBufferAllocateInfo{
@@ -347,26 +367,30 @@ bool VulkanWrapper::make_command_buffers() {
       .commandBufferCount = static_cast<uint32_t>(data_.commandBuffers.size()),
   };
 
-  return vkAllocateCommandBuffers(data_.logicalDevice,
-                                  &allocInfo,
-                                  data_.commandBuffers.data()) == VK_SUCCESS;
+  if (vkAllocateCommandBuffers(data_.logicalDevice,
+                               &allocInfo,
+                               data_.commandBuffers.data()) != VK_SUCCESS) {
+    throw std::runtime_error("Failed to allocate command buffers!");
+  }
 }
 
-bool VulkanWrapper::load_shader() {
-  auto vertCode =
-      util::readSpvFile(std::string(SHADER_PATH) + "/simple.vert.spv");
-  auto fragCode =
-      util::readSpvFile(std::string(SHADER_PATH) + "/simple.frag.spv");
+void VulkanWrapper::load_shader() {
+  try {
+    auto vertCode =
+        util::readSpvFile(std::string(SHADER_PATH) + "/simple.vert.spv");
+    auto fragCode =
+        util::readSpvFile(std::string(SHADER_PATH) + "/simple.frag.spv");
 
-  data_.vertShaderModule =
-      util::createShaderModule(data_.logicalDevice, vertCode);
-  data_.fragShaderModule =
-      util::createShaderModule(data_.logicalDevice, fragCode);
-
-  return true;
+    data_.vertShaderModule =
+        util::createShaderModule(data_.logicalDevice, vertCode);
+    data_.fragShaderModule =
+        util::createShaderModule(data_.logicalDevice, fragCode);
+  } catch (std::exception& e) {
+    throw std::runtime_error(std::string("Failed to load shader: ") + e.what());
+  }
 }
 
-bool VulkanWrapper::make_pipeline() {
+void VulkanWrapper::make_pipeline() {
   auto vertShaderStageInfo = VkPipelineShaderStageCreateInfo{
       .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
       .stage = VK_SHADER_STAGE_VERTEX_BIT,
@@ -473,7 +497,7 @@ bool VulkanWrapper::make_pipeline() {
                              &pipelineLayoutInfo,
                              nullptr,
                              &data_.pipelineLayout) != VK_SUCCESS) {
-    return false;
+    throw std::runtime_error("Failed to create pipeline layout!");
   }
 
   auto pipelineInfo = VkGraphicsPipelineCreateInfo{
@@ -495,16 +519,18 @@ bool VulkanWrapper::make_pipeline() {
       .subpass = 0,
   };
 
-  return vkCreateGraphicsPipelines(data_.logicalDevice,
-                                   VK_NULL_HANDLE,
-                                   1,
-                                   &pipelineInfo,
-                                   nullptr,
-                                   &data_.graphicsPipeline) == VK_SUCCESS &&
-         data_.graphicsPipeline != nullptr;
+  if (vkCreateGraphicsPipelines(data_.logicalDevice,
+                                VK_NULL_HANDLE,
+                                1,
+                                &pipelineInfo,
+                                nullptr,
+                                &data_.graphicsPipeline) != VK_SUCCESS ||
+      data_.graphicsPipeline == nullptr) {
+    throw std::runtime_error("Failed to create graphics pipeline!");
+  }
 }
 
-bool VulkanWrapper::record_command_buffers() {
+void VulkanWrapper::record_command_buffers() {
   for (size_t i = 0; i < data_.commandBuffers.size(); ++i) {
     auto beginInfo = VkCommandBufferBeginInfo{
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
@@ -572,29 +598,29 @@ bool VulkanWrapper::record_command_buffers() {
     vkCmdEndRenderPass(data_.commandBuffers[i]);
 
     if (vkEndCommandBuffer(data_.commandBuffers[i]) != VK_SUCCESS) {
-      return false;
+      throw std::runtime_error("Failed to record command buffer!");
     }
   }
-
-  return true;
 }
 
-bool VulkanWrapper::init_sync() {
+void VulkanWrapper::make_semaphores() {
   auto semaphoreInfo = VkSemaphoreCreateInfo{
       .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
   };
 
-  return vkCreateSemaphore(data_.logicalDevice,
-                           &semaphoreInfo,
-                           nullptr,
-                           &data_.imageAvailableSemaphore) == VK_SUCCESS &&
-         vkCreateSemaphore(data_.logicalDevice,
-                           &semaphoreInfo,
-                           nullptr,
-                           &data_.renderFinishedSemaphore) == VK_SUCCESS;
+  if (vkCreateSemaphore(data_.logicalDevice,
+                        &semaphoreInfo,
+                        nullptr,
+                        &data_.imageAvailableSemaphore) != VK_SUCCESS ||
+      vkCreateSemaphore(data_.logicalDevice,
+                        &semaphoreInfo,
+                        nullptr,
+                        &data_.renderFinishedSemaphore) != VK_SUCCESS) {
+    throw std::runtime_error("Failed to create semaphores!");
+  }
 }
 
-bool VulkanWrapper::make_vertex_buffer() {
+void VulkanWrapper::make_vertex_buffer() {
   VkDeviceSize bufferSize =
       sizeof(params_.model->vertices[0]) * params_.model->vertices.size();
 
@@ -613,14 +639,15 @@ bool VulkanWrapper::make_vertex_buffer() {
                             0,
                             &data);
 
+  if (result != VK_SUCCESS)
+    throw std::runtime_error("Failed to make vertex buffer!");
+
   memcpy(data, params_.model->vertices.data(), bufferSize);
 
   vkUnmapMemory(data_.logicalDevice, data_.bufferData.vertexBufferMemory);
-
-  return result == VK_SUCCESS;
 }
 
-bool VulkanWrapper::make_index_buffer() {
+void VulkanWrapper::make_index_buffer() {
   VkDeviceSize bufferSize =
       sizeof(params_.model->indices[0]) * params_.model->indices.size();
 
@@ -639,35 +666,32 @@ bool VulkanWrapper::make_index_buffer() {
                             0,
                             &data);
 
+  if (result != VK_SUCCESS)
+    throw std::runtime_error("Failed to make index buffer!");
+
   memcpy(data, params_.model->indices.data(), (size_t)bufferSize);
 
   vkUnmapMemory(data_.logicalDevice, data_.bufferData.indexBufferMemory);
-
-  return result == VK_SUCCESS;
 }
 
-bool VulkanWrapper::make_uniform_buffers() {
+void VulkanWrapper::make_uniform_buffers() {
   VkDeviceSize bufferSize = sizeof(UBO);
   size_t imageCount = data_.swapchainImageViews.size();  // 比如 3 张
 
   data_.bufferData.uniformBuffers.resize(imageCount);
   data_.bufferData.uniformBufferMemory.resize(imageCount);
 
-  bool result = true;
   for (size_t i = 0; i < imageCount; i++) {
-    result = make_buffer(bufferSize,
-                         VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-                         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-                             VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                         data_.bufferData.uniformBuffers[i],
-                         data_.bufferData.uniformBufferMemory[i]) &&
-             result;
+    make_buffer(bufferSize,
+                VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                    VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                data_.bufferData.uniformBuffers[i],
+                data_.bufferData.uniformBufferMemory[i]);
   }
-
-  return result;
 }
 
-bool VulkanWrapper::make_descriptor_pool() {
+void VulkanWrapper::make_descriptor_pool() {
   size_t imageCount = data_.swapchainImageViews.size();
   auto poolSize = VkDescriptorPoolSize{
       .type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
@@ -681,14 +705,16 @@ bool VulkanWrapper::make_descriptor_pool() {
       .pPoolSizes = &poolSize,
   };
 
-  return vkCreateDescriptorPool(data_.logicalDevice,
-                                &poolInfo,
-                                nullptr,
-                                &data_.descriptData.descriptorPool) ==
-         VK_SUCCESS;
+  if (vkCreateDescriptorPool(data_.logicalDevice,
+                             &poolInfo,
+                             nullptr,
+                             &data_.descriptData.descriptorPool) !=
+      VK_SUCCESS) {
+    throw std::runtime_error("Failed to create descriptor pool!");
+  }
 }
 
-bool VulkanWrapper::make_descriptor_sets() {
+void VulkanWrapper::make_descriptor_sets() {
   size_t imageCount = data_.swapchainImageViews.size();
   auto layouts = std::vector<VkDescriptorSetLayout>(
       imageCount,
@@ -730,10 +756,12 @@ bool VulkanWrapper::make_descriptor_sets() {
                            nullptr);
   }
 
-  return data_.descriptData.descriptorSets.size() == imageCount;
+  if (data_.descriptData.descriptorSets.size() != imageCount) {
+    throw std::runtime_error("Failed to create descriptor sets!");
+  }
 }
 
-bool VulkanWrapper::make_descriptor_set_layout() {
+void VulkanWrapper::make_descriptor_set_layout() {
   auto uboLayoutBinding = VkDescriptorSetLayoutBinding{
       .binding = 0,
       .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
@@ -747,14 +775,16 @@ bool VulkanWrapper::make_descriptor_set_layout() {
       .pBindings = &uboLayoutBinding,
   };
 
-  return vkCreateDescriptorSetLayout(data_.logicalDevice,
-                                     &uboLayoutInfo,
-                                     nullptr,
-                                     &data_.descriptData.descriptorSetLayout) ==
-         VK_SUCCESS;
+  if (vkCreateDescriptorSetLayout(data_.logicalDevice,
+                                  &uboLayoutInfo,
+                                  nullptr,
+                                  &data_.descriptData.descriptorSetLayout) !=
+      VK_SUCCESS) {
+    throw std::runtime_error("Failed to create descriptor set layout!");
+  }
 }
 
-bool VulkanWrapper::make_buffer(VkDeviceSize size,
+void VulkanWrapper::make_buffer(VkDeviceSize size,
                                 VkBufferUsageFlags usage,
                                 VkMemoryPropertyFlags properties,
                                 VkBuffer& buffer,
@@ -779,15 +809,14 @@ bool VulkanWrapper::make_buffer(VkDeviceSize size,
                                                 properties),
   };
 
-  return vkAllocateMemory(data_.logicalDevice,
-                          &allocInfo,
-                          nullptr,
-                          &bufferMemory) == VK_SUCCESS
-
-         &&
-
-         vkBindBufferMemory(data_.logicalDevice, buffer, bufferMemory, 0) ==
-             VK_SUCCESS;
+  if (vkAllocateMemory(data_.logicalDevice,
+                       &allocInfo,
+                       nullptr,
+                       &bufferMemory) != VK_SUCCESS ||
+      vkBindBufferMemory(data_.logicalDevice, buffer, bufferMemory, 0) !=
+          VK_SUCCESS) {
+    throw std::runtime_error("Failed to allocate buffer memory!");
+  }
 }
 
 void VulkanWrapper::update_uniform_buffer(uint32_t currentImage) {
@@ -807,22 +836,24 @@ void VulkanWrapper::update_uniform_buffer(uint32_t currentImage) {
                           glm::vec3(0.0f, 0.0f, 0.0f),
                           glm::vec3(0.0f, 0.0f, 1.0f)),
 
-      .proj = glm::perspective(
-          glm::radians(45.0f),
-          static_cast<float>(data_.extent.width) / static_cast<float>(data_.extent.height),
-          0.1f,
-          10.0f),
+      .proj = glm::perspective(glm::radians(45.0f),
+                               static_cast<float>(data_.extent.width) /
+                                   static_cast<float>(data_.extent.height),
+                               0.1f,
+                               10.0f),
   };
 
   ubo.proj[1][1] *= -1;
 
   void* data;
-  vkMapMemory(data_.logicalDevice,
-              data_.bufferData.uniformBufferMemory[currentImage],
-              0,
-              sizeof(ubo),
-              0,
-              &data);
+  if (vkMapMemory(data_.logicalDevice,
+                  data_.bufferData.uniformBufferMemory[currentImage],
+                  0,
+                  sizeof(ubo),
+                  0,
+                  &data)) {
+    throw std::runtime_error("Failed to update uniform buffer!");
+  }
 
   memcpy(data, &ubo, sizeof(ubo));
 
@@ -830,15 +861,36 @@ void VulkanWrapper::update_uniform_buffer(uint32_t currentImage) {
                 data_.bufferData.uniformBufferMemory[currentImage]);
 }
 
-bool VulkanWrapper::init() {
-  return make_instance() && make_surface() && make_logical_device() &&
-         make_swapchain() && make_swapchain_image_views() &&
-         make_depth_resources() && make_render_pass() && make_frame_buffers() &&
-         make_command_pool() && make_command_buffers() && load_shader() &&
-         make_vertex_buffer() && make_index_buffer() &&
-         make_uniform_buffers() && make_descriptor_set_layout() &&
-         make_descriptor_pool() && make_descriptor_sets() && make_pipeline() &&
-         record_command_buffers() && init_sync();
+void VulkanWrapper::init() {
+  make_instance();
+  make_surface();
+
+  make_logical_device();
+
+  make_swapchain();
+  make_swapchain_image_views();
+  make_depth_resources();
+  make_render_pass();
+  make_frame_buffers();
+
+  make_command_pool();
+  make_command_buffers();
+
+  load_shader();
+
+  make_vertex_buffer();
+  make_index_buffer();
+  make_uniform_buffers();
+
+  make_descriptor_set_layout();
+  make_descriptor_pool();
+  make_descriptor_sets();
+
+  make_pipeline();
+
+  record_command_buffers();
+
+  make_semaphores();
 }
 
 void VulkanWrapper::run() {

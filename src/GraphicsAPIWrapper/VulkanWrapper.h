@@ -94,40 +94,40 @@ class VulkanWrapper {
   VulkanWrapper(Params&& params, Data&& data);
   ~VulkanWrapper() = default;
 
-  bool make_instance();
-  bool make_surface();
-  bool make_logical_device();
-  bool make_swapchain();
-  bool make_swapchain_image_views();
-  bool make_render_pass();
-  bool make_frame_buffers();
-  bool make_command_pool();
-  bool make_command_buffers();
+  void make_instance();
+  void make_surface();
+  void make_logical_device();
+  void make_swapchain();
+  void make_swapchain_image_views();
+  void make_render_pass();
+  void make_frame_buffers();
+  void make_command_pool();
+  void make_command_buffers();
 
-  bool load_shader();
-  bool make_vertex_buffer();
-  bool make_index_buffer();
-  bool make_uniform_buffers();
-  bool make_descriptor_pool();
-  bool make_descriptor_sets();
-  bool make_descriptor_set_layout();
+  void load_shader();
+  void make_vertex_buffer();
+  void make_index_buffer();
+  void make_uniform_buffers();
+  void make_descriptor_pool();
+  void make_descriptor_sets();
+  void make_descriptor_set_layout();
 
-  bool make_depth_resources();
+  void make_depth_resources();
 
-  bool make_pipeline();
-  bool record_command_buffers();
+  void make_pipeline();
+  void record_command_buffers();
 
-  bool make_buffer(VkDeviceSize size,
+  void make_buffer(VkDeviceSize size,
                    VkBufferUsageFlags usage,
                    VkMemoryPropertyFlags properties,
                    VkBuffer& buffer,
                    VkDeviceMemory& bufferMemory);
 
-  bool init_sync();
+  void make_semaphores();
 
   void update_uniform_buffer(uint32_t currentImage);
 
-  bool init();
+  void init();
   void run();
   void clean_up();
 

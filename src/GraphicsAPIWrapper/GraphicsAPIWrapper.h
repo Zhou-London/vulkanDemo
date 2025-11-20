@@ -9,7 +9,7 @@ class GraphicsAPIWrapper {
 
   ~GraphicsAPIWrapper() = default;
 
-  bool init() { return backend_.init(); }
+  void init() { return backend_.init(); }
 
   void run() { return backend_.run(); }
 
